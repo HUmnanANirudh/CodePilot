@@ -1,22 +1,10 @@
 import os
-from typing import List, Dict, Any
+from collections import defaultdict
+from typing import List, Dict, Any, Set
 
-IGNORE_DIRS = [
-    'node_modules/',
-    'public/',
-    'venv/',
-    '__pycache__/',
-    '.git/',
-    'dist/',
-    'build/',
-]
-IGNORE_FILES = [
-    '.gitignore',
-    'package.json',
-    'package-lock.json',
-    'yarn.lock',
-    'requirements.txt',
-]
+IGNORE_DIRS = {'node_modules/', 'public/', 'venv/', '__pycache__/', '.git/', 'dist/', 'build/'}
+IGNORE_FILES = {'.gitignore', 'package.json', 'package-lock.json', 'yarn.lock', 'requirements.txt'}
+
 
 class GraphBuilder:
     def __init__(self, file_tree: List[Dict[str, Any]], churn_data: Dict[str, int], dependencies: List[Dict[str, str]]):
@@ -26,6 +14,7 @@ class GraphBuilder:
         self.nodes = []
         self.edges = []
         self.clusters = {}
+        self.file_to_cluster = {}
 
     def _is_ignored(self, path: str) -> bool:
         if any(path.startswith(d) for d in IGNORE_DIRS):
@@ -34,166 +23,223 @@ class GraphBuilder:
             return True
         return False
 
+    def _get_module_name(self, file_path: str) -> str:
+        """Extract meaningful module name from file path."""
+        parts = file_path.rsplit('/', 1)
+        if len(parts) == 2:
+            return parts[1].rsplit('.', 1)[0]  # strip extension
+        return parts[0]
+
     def build_synapse_graph(self) -> Dict[str, List]:
-        """
-        Builds a dependency graph from the file tree, churn data, and dependencies.
-        Nodes represent files, and edges represent dependencies between files.
-        """
+        """Builds the raw file-level dependency graph."""
         files = [item for item in self.file_tree if item['type'] == 'blob' and not self._is_ignored(item['path'])]
         node_ids = {item['path'] for item in files}
 
-        # Create nodes for all files
         for file_path in node_ids:
-            churn = self.churn_data.get(file_path, 0)
             self.nodes.append({
                 "id": file_path,
                 "group": os.path.dirname(file_path),
-                "size": churn,
+                "size": self.churn_data.get(file_path, 0),
             })
 
-        # Create edges based on dependencies
         for dep in self.dependencies:
-            source = dep['source']
-            target = dep['target']
+            source, target = dep['source'], dep['target']
             if source in node_ids and target in node_ids:
-                self.edges.append({
-                    "source": source,
-                    "target": target,
-                })
+                self.edges.append({"source": source, "target": target})
 
         return {"nodes": self.nodes, "links": self.edges}
 
-    def generate_clusters(self, min_size: int = 3, max_depth: int = 3) -> Dict[str, List[str]]:
+    def generate_clusters(self, min_size: int = 3, max_depth: int = 4) -> Dict[str, List[str]]:
         """
-        Generates clusters of files based on their parent directory, with filtering.
+        Deprecated — do not use. Kept for API compatibility.
+        Use build_module_diagram() which does import-based module detection.
         """
-        for node in self.nodes:
-            dir_name = os.path.dirname(node['id'])
-            if dir_name not in self.clusters:
-                self.clusters[dir_name] = []
-            self.clusters[dir_name].append(node['id'])
+        return {}
 
-        filtered_clusters = {}
-        for dir_name, files in self.clusters.items():
-            depth = len(dir_name.split('/'))
-            if len(files) >= min_size and depth <= max_depth:
-                filtered_clusters[dir_name] = files
-
-        return filtered_clusters
-
-    def _calc_cluster_metrics(self, filtered_clusters: Dict[str, List[str]]) -> Dict[str, Dict[str, int]]:
-        """
-        Calculate fan-in, fan-out, and centrality for each cluster.
-        Uses file-level import edges aggregated to cluster level.
-        """
-        # Build file → cluster mapping
-        file_to_cluster = {}
-        for cluster_id, files in filtered_clusters.items():
-            for f in files:
-                file_to_cluster[f] = cluster_id
-
-        # Count cross-cluster edges in both directions
-        fan_in = {c: 0 for c in filtered_clusters}
-        fan_out = {c: 0 for c in filtered_clusters}
-        incoming = {c: set() for c in filtered_clusters}  # who imports this cluster
-        outgoing = {c: set() for c in filtered_clusters}  # who this cluster imports
-
+    def _build_import_adjacency(self) -> Dict[str, Set[str]]:
+        """Build adjacency list from source -> {targets it imports}."""
+        adj = defaultdict(set)
         for dep in self.dependencies:
-            source_cluster = file_to_cluster.get(dep['source'])
-            target_cluster = file_to_cluster.get(dep['target'])
-            if source_cluster and target_cluster and source_cluster != target_cluster:
-                # source imports target, so source has fan_out++, target has fan_in++
-                fan_out[source_cluster] += 1
-                fan_in[target_cluster] += 1
-                outgoing[source_cluster].add(target_cluster)
-                incoming[target_cluster].add(source_cluster)
+            adj[dep['source']].add(dep['target'])
+        return adj
+
+    def _find_strongly_connected_components(self, nodes: Set[str], adj: Dict[str, Set[str]]) -> List[Set[str]]:
+        """
+        Tarjan's algorithm for finding strongly connected components.
+        Files in an SCC all import each other (or import through a cycle).
+        """
+        index_counter = [0]
+        stack = []
+        lowlinks = {}
+        index = {}
+        on_stack = {}
+        sccs = []
+
+        def strongconnect(v):
+            index[v] = index_counter[0]
+            lowlinks[v] = index_counter[0]
+            index_counter[0] += 1
+            stack.append(v)
+            on_stack[v] = True
+
+            for w in adj.get(v, []):
+                if w not in index:
+                    strongconnect(w)
+                    lowlinks[v] = min(lowlinks[v], lowlinks[w])
+                elif on_stack.get(w, False):
+                    lowlinks[v] = min(lowlinks[v], index[w])
+
+            if lowlinks[v] == index[v]:
+                scc = set()
+                while True:
+                    w = stack.pop()
+                    on_stack[w] = False
+                    scc.add(w)
+                    if w == v:
+                        break
+                sccs.append(scc)
+
+        for node in nodes:
+            if node not in index:
+                strongconnect(node)
+
+        # Filter to SCCs with more than 1 node (actual mutual dependencies)
+        # or single nodes that import/are imported by others
+        return [scc for scc in sccs if len(scc) > 1]
+
+    def _aggregate_sccs_into_modules(self, sccs: List[Set[str]], adj: Dict[str, Set[str]], all_files: Set[str]) -> Dict[str, List[str]]:
+        """
+        Aggregate SCCs into modules. Each SCC becomes a module.
+        Also include singleton files that have import relationships.
+        """
+        modules = {}
+        used_files = set()
+
+        # First pass: all multi-file SCCs become modules
+        for scc in sccs:
+            # Find the common directory prefix (the "module" they belong to)
+            sorted_files = sorted(scc)
+            common_prefix = os.path.dirname(os.path.commonpath(scc)) if len(scc) > 1 else os.path.dirname(sorted_files[0])
+            module_id = common_prefix if common_prefix else 'root'
+
+            if module_id not in modules:
+                modules[module_id] = []
+            modules[module_id].extend(sorted_files)
+            used_files.update(scc)
+
+        # Second pass: group remaining files by their top-level directory
+        remaining = all_files - used_files
+        by_toplevel = defaultdict(list)
+        for f in remaining:
+            parts = f.split('/')
+            toplevel = parts[0] if parts else 'root'
+            by_toplevel[toplevel].append(f)
+
+        for toplevel, files in by_toplevel.items():
+            if files and toplevel not in ('.', ''):
+                modules[toplevel] = files
+
+        return modules
+
+    def _calc_module_metrics(self, modules: Dict[str, List[str]], adj: Dict[str, Set[str]]) -> Dict[str, Dict[str, Any]]:
+        """Calculate fan-in, fan-out, centrality for each module."""
+        file_to_module = {}
+        for mod_id, files in modules.items():
+            for f in files:
+                file_to_module[f] = mod_id
+
+        fan_in = defaultdict(int)
+        fan_out = defaultdict(int)
+        incoming = defaultdict(set)
+        outgoing = defaultdict(set)
+
+        for source, targets in adj.items():
+            src_mod = file_to_module.get(source)
+            if not src_mod:
+                continue
+            for target in targets:
+                tgt_mod = file_to_module.get(target)
+                if tgt_mod and tgt_mod != src_mod:
+                    if tgt_mod not in outgoing[src_mod]:
+                        outgoing[src_mod].add(tgt_mod)
+                        fan_out[src_mod] += 1
+                    if src_mod not in incoming[tgt_mod]:
+                        incoming[tgt_mod].add(src_mod)
+                        fan_in[tgt_mod] += 1
 
         metrics = {}
-        for c in filtered_clusters:
-            fi = fan_in[c]
-            fo = fan_out[c]
-            # Harmonic centrality-like score: high when both in and out are high
-            centrality = (fi * fo) / (fi + fo + 1)
-            metrics[c] = {
+        for mod_id in modules:
+            fi = fan_in[mod_id]
+            fo = fan_out[mod_id]
+            centrality = round((fi * fo) / (fi + fo + 1), 2)
+            metrics[mod_id] = {
                 "fan_in": fi,
                 "fan_out": fo,
-                "centrality": round(centrality, 2),
-                "incoming": list(incoming[c]),
-                "outgoing": list(outgoing[c])
+                "centrality": centrality,
+                "incoming": list(incoming[mod_id]),
+                "outgoing": list(outgoing[mod_id]),
             }
         return metrics
 
-    def _classify_layer(self, cluster_id: str, metrics: Dict[str, Dict[str, Any]]) -> str:
-        """
-        Classify cluster into layer based on fan-in/fan-out pattern:
-        - High fan-out, low fan-in → infrastructure (utility/bottom layer)
-        - High fan-in, low fan-out → core-service (central module, others depend on it)
-        - High fan-out AND fan-in → service (both imports and is imported)
-        - Low in/out → utility
-        """
-        m = metrics.get(cluster_id, {"fan_in": 0, "fan_out": 0})
-        fi = m["fan_in"]
-        fo = m["fan_out"]
+    def _classify_layer(self, mod_id: str, metrics: Dict[str, Dict[str, Any]]) -> str:
+        """Classify module by fan-in/fan-out pattern."""
+        m = metrics.get(mod_id, {"fan_in": 0, "fan_out": 0})
+        fi, fo = m["fan_in"], m["fan_out"]
 
-        if fi >= 5 and fo <= 2:
+        if fi >= 4 and fo <= 2:
             return "core-service"
-        elif fo >= 5 and fi <= 2:
+        elif fo >= 4 and fi <= 2:
             return "infrastructure"
-        elif fo >= 3 and fi >= 3:
+        elif fo >= 2 and fi >= 2:
             return "service"
         elif fo <= 1 and fi <= 1:
             return "utility"
-        else:
-            return "domain"
+        return "domain"
 
     def build_module_diagram(self) -> Dict[str, Any]:
         """
-        Aggregates file-level graph to cluster-level module diagram.
-        Layer classification based on fan-in/fan-out centrality, not folder names.
-        Returns nodes with layer types and edges with semantic relationship labels.
+        Build a module-level dependency diagram using import analysis.
+        NOT folder-based — finds actual code modules via import relationships.
         """
-        nodes = []
-        edges = []
-
-        # Get filtered clusters
-        filtered = self.generate_clusters(min_size=2, max_depth=4)
-        if not filtered:
+        all_files = {item['path'] for item in self.file_tree if item['type'] == 'blob' and not self._is_ignored(item['path'])}
+        if not all_files:
             return {"nodes": [], "edges": []}
 
-        # Calculate cluster metrics (fan-in, fan-out, centrality)
-        metrics = self._calc_cluster_metrics(filtered)
+        adj = self._build_import_adjacency()
+        sccs = self._find_strongly_connected_components(all_files, adj)
+        modules = self._aggregate_sccs_into_modules(sccs, adj, all_files)
 
-        # Layer Y positions (UI at top, infra at bottom)
+        if not modules:
+            return {"nodes": [], "edges": []}
+
+        # Filter to modules with >= 2 files OR that have import relationships
+        meaningful_modules = {
+            m: files for m, files in modules.items()
+            if len(files) >= 2 or m in [k for k, v in adj.items() if v]
+        }
+
+        metrics = self._calc_module_metrics(meaningful_modules, adj)
+
         layer_y = {
-            'ui': 50,
-            'core-service': 180,
-            'service': 310,
-            'domain': 440,
-            'infrastructure': 570,
-            'utility': 700,
+            'core-service': 50,
+            'service': 180,
+            'domain': 310,
+            'infrastructure': 440,
+            'utility': 570,
         }
-        layer_color = {
-            'ui': '#6366f1',
-            'core-service': '#f59e0b',
-            'service': '#10b981',
-            'domain': '#8b5cf6',
-            'infrastructure': '#64748b',
-            'utility': '#6b7280',
-        }
-
         layer_x_counters = {l: 0 for l in layer_y}
 
-        for cluster_id, files in filtered.items():
-            label = os.path.basename(cluster_id) if cluster_id and cluster_id != '.' else 'root'
-            layer = self._classify_layer(cluster_id, metrics)
-            m = metrics.get(cluster_id, {})
+        nodes = []
+        for mod_id, files in meaningful_modules.items():
+            label = mod_id.split('/')[-1] if '/' in mod_id else mod_id
+            layer = self._classify_layer(mod_id, metrics)
+            m = metrics.get(mod_id, {})
 
-            x_counter = layer_x_counters[layer]
+            x = layer_x_counters[layer]
             layer_x_counters[layer] += 1
 
             nodes.append({
-                "id": cluster_id,
-                "type": "default",
+                "id": mod_id,
                 "data": {
                     "label": label,
                     "layer": layer,
@@ -204,25 +250,23 @@ class GraphBuilder:
                     "incoming": m.get("incoming", []),
                     "outgoing": m.get("outgoing", []),
                 },
-                "position": {
-                    "x": 150 + x_counter * 280,
-                    "y": layer_y.get(layer, 400)
-                }
+                "position": {"x": 150 + x * 290, "y": layer_y.get(layer, 400)},
             })
 
-        # Build semantic edges at cluster level
         seen_edges = set()
-        for cluster_id, files in filtered.items():
-            m = metrics.get(cluster_id, {})
-            for target_cluster in m.get("outgoing", []):
-                edge_key = (cluster_id, target_cluster)
-                if edge_key not in seen_edges:
-                    seen_edges.add(edge_key)
-                    edges.append({
-                        "id": f"e-{cluster_id}-{target_cluster}",
-                        "source": cluster_id,
-                        "target": target_cluster,
-                        "label": "uses"
-                    })
+        edges = []
+        for mod_id, files in meaningful_modules.items():
+            m = metrics.get(mod_id, {})
+            for target_mod in m.get("outgoing", []):
+                if target_mod in meaningful_modules:
+                    key = (mod_id, target_mod)
+                    if key not in seen_edges:
+                        seen_edges.add(key)
+                        edges.append({
+                            "id": f"e-{mod_id}-{target_mod}",
+                            "source": mod_id,
+                            "target": target_mod,
+                            "label": "uses",
+                        })
 
         return {"nodes": nodes, "edges": edges}
