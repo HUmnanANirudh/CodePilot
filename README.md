@@ -1,14 +1,27 @@
 # The Code Fable
-The Code Fable is a web application that analyzes public GitHub repositories and visualizes their structure as a "The Tale".
+
+The Code Fable is a web application that analyzes public GitHub repositories and visualizes their structure as a "Code Fable" — a rich, interactive narrative dashboard.
+
 ## Architecture
 
--   **Frontend:** React, Vite, TailwindCSS, and `react-force-graph-2d`(D3.js) for graph visualization.
--   **Backend:** Python, FastAPI, Celery, Redis.
+- **Frontend:** React, Vite, TailwindCSS, and `react-force-graph-2d` (D3.js) for graph visualization.
+- **Backend:** Python, FastAPI, Celery, Redis.
+- **AI:** Google Gemini for narrative generation and architecture summaries.
+
 ## How to Run
 
 ### Option 1: Docker (Recommended)
 
-The easiest way to run the entire project is using Docker Compose, which sets up all services (backend, frontend, worker, PostgreSQL, and Redis) automatically.
+The easiest way to run the entire project is using Docker Compose, which sets up all services (backend, frontend, worker, and Redis) automatically.
+
+**Prerequisites:** Create a `.env` file in the project root with your API keys:
+
+```bash
+GITHUB_TOKEN=your_github_personal_access_token
+LLM_API_KEY=your_google_gemini_api_key
+```
+
+Then start the services:
 
 ```bash
 # Build and start all services
@@ -37,67 +50,56 @@ docker-compose down -v
 docker-compose restart backend
 ```
 
-**Environment variables:** For production or custom configuration, create a `.env` file in the root directory with your settings (database credentials, API keys, etc.).
-
 ### Option 2: Manual Setup
 
+#### Prerequisites
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Node.js 20+
+- Redis running locally on port 6379
+
 #### 1. Backend
-
-First, navigate to the `backend` directory:
-
-```bash
-cd backend
-```
-
-Then, create a virtual environment and install the dependencies:
 
 ```bash
 cd backend
 uv sync
 source .venv/bin/activate
-```
-
-Finally, run the backend server:
-
-```bash
 uvicorn app.main:app --reload
 ```
 
+The API will be available at `http://localhost:8000`.
+
 #### 2. Frontend
 
-In a separate terminal, navigate to the `frontend` directory:
+In a separate terminal:
 
 ```bash
 cd frontend
-```
-
-Then, install the dependencies:
-
-```bash
 npm install
-```
-
-Finally, run the frontend development server:
-
-```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`.
+The app will be available at `http://localhost:5173`.
 
-### 3. Worker
+#### 3. Celery Worker
 
-The backend uses a Celery worker to perform the analysis. To run the worker, you'll need to have Redis installed and running.
-
-First, navigate to the `backend` directory:
+In a third terminal (Redis must be running):
 
 ```bash
 cd backend
-```
-
-Then, run the Celery worker:
-
-```bash
+source .venv/bin/activate
 celery -A worker.worker.celery_app worker --loglevel=info
 ```
 
+#### Environment Variables
+
+Create a `backend/.env` file with the following:
+
+```bash
+GITHUB_TOKEN=your_github_personal_access_token
+LLM_API_KEY=your_google_gemini_api_key
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+REDIS_URL=redis://localhost:6379/0
+```

@@ -39,7 +39,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-dist/
 *.local
 
 # IDEs
@@ -50,18 +49,15 @@ dist/
 *~
 .DS_Store
 
-# Environment
+# Environment (secrets should be passed via docker-compose env vars)
 .env
 .env.local
 .env.*.local
 
 # Docker
 .dockerignore
-docker-compose*.yml
 
 # Documentation
-README*.md
-*.txt
 LICENSE
 
 # Misc
