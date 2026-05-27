@@ -5,52 +5,33 @@ class Narrative:
         self.summary = summary
         self.llm_client = llm_client
 
-    def generate_story(self):
-        # This is a placeholder for generating the repository narrative
-        prompt = self._format_prompt()
-        story = self.llm_client.generate(prompt)
-        return story
-
-    def _format_prompt(self):
-        """
-        Formats a detailed prompt for the Copilot client to generate a repository narrative.
-        """
+    def generate_what_it_is(self):
         prompt = (
-            "You are a principal software engineer tasked with analyzing a new codebase. "
-            "Based on the following summary, write a brief, insightful narrative (2-3 paragraphs) about the repository's architecture, potential risks, and areas of interest. "
-            "Your tone should be technical, objective, and slightly informal, like you're talking to your team.\n\n"
-            "**Codebase Analysis Summary:**\n"
-            "- **Identified Hotspots (Top 10 most active files):**\n"
+            "You are an expert software architect who reads a repository for 5 minutes and describes it as a fable. "
+            "Based on the following clusters, write a brief, insightful narrative (2-3 paragraphs) about the repository's origin story, "
+            "the purpose, what problem it solves, and its personality. "
+            "Your tone should be warm, insightful, authoritative, and slightly informal. Use first person plural ('This codebase is a living ledger...'). "
+            "DO NOT use bullet points or lists.\n\n"
+            "**Key Architectural Clusters:**\n"
         )
-
-        for hotspot in self.summary.get('hotspots', []):
-            prompt += f"  - `{hotspot}`\n"
-
-        prompt += "\n- **Key Architectural Clusters (by directory):**\n"
         for cluster, files in self.summary.get('clusters', {}).items():
-            prompt += f"  - **Cluster:** `{cluster}` ({len(files)} files)\n"
+            prompt += f"  - `{cluster}` ({len(files)} files)\n"
         
-        prompt += (
-            "\n**Your Task:**\n"
-            "1.  **Synthesize:** Briefly describe the likely purpose and structure of the application based on the clusters.\n"
-            "2.  **Analyze Hotspots:** What do the hotspots suggest about recent development activity or potential complexity?\n"
-            "3.  **Identify Risks:** Are there any potential risks or code smells suggested by the file names or groupings (e.g., large, monolithic clusters)?\n"
-            "4.  **Suggest Next Steps:** What would you investigate next?\n\n"
-            "Generate the narrative now."
-        )
-        return prompt
+        prompt += "\nGenerate the fable now."
+        return self.llm_client.generate(prompt)
 
-    def generate_architecture_summary(self):
+    def generate_how_it_works(self):
         prompt = (
-            "You are a principal software engineer. Based on the following repository clusters and hotspots, "
-            "provide a concise, high-level Architecture Summary explaining how this application is likely structured, "
-            "the core components, and how they interact. Keep it under 200 words.\n\n"
+            "You are a principal software engineer. Based on the following repository clusters, "
+            "describe the architecture flow. Explain what the core modules are, how data flows through them, "
+            "what the entry points are, and what the key design patterns are. "
+            "Produce a clear architectural narrative, not just a list of clusters.\n\n"
         )
         for cluster, files in self.summary.get('clusters', {}).items():
             prompt += f"  - **{cluster}**\n"
         return self.llm_client.generate(prompt)
 
-    def generate_agent_prompt(self, intelligence: dict, tree_viewer: dict):
+    def generate_rebuild_prompt(self, intelligence: dict, tree_viewer: dict):
         import json
         tech_stack = ", ".join(intelligence.get("tech_stack", []))
         clusters = list(self.summary.get("clusters", {}).keys())

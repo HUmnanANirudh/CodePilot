@@ -7,15 +7,31 @@ class ImportParser:
     def __init__(self, github_client: GitHubClient):
         self.github_client = github_client
 
+    # Extensions that actually have import statements worth parsing
+    SOURCE_EXTENSIONS = frozenset({
+        '.py', '.js', '.jsx', '.ts', '.tsx',
+        '.vue', '.svelte', '.go', '.rs', '.java',
+        '.c', '.cpp', '.h', '.hpp', '.cs', '.rb',
+    })
+
     def get_dependencies(self, owner: str, repo: str, file_tree: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """
-        Parses the imports for each file in the file tree and returns a list of dependencies.
+        Parses the imports for each source file in the file tree and returns a list of dependencies.
+        Skips non-source files (images, binaries, docs, etc.) to minimize API calls.
         """
         dependencies = []
-        files = [item['path'] for item in file_tree if item['type'] == 'blob']
-        file_set = set(files)
+        all_files = [item['path'] for item in file_tree if item['type'] == 'blob']
 
-        for file_path in files:
+        # Filter to only files that could contain import statements
+        source_files = [
+            f for f in all_files
+            if any(f.endswith(ext) for ext in self.SOURCE_EXTENSIONS)
+        ]
+        file_set = set(source_files)
+
+        print(f"Parsing imports for {len(source_files)} source files (skipped {len(all_files) - len(source_files)} non-source files)")
+
+        for file_path in source_files:
             try:
                 content = self.github_client.get_file_content(owner, repo, file_path)
                 imports = self._parse_imports(file_path, content)

@@ -58,18 +58,19 @@ def run_analysis(owner: str, repo: str, repo_id: str):
     import_parser = ImportParser(github_client)
     dependencies = import_parser.get_dependencies(owner, repo, file_tree)
 
-    # Build graph
+    # Build graph and module diagram
     graph_builder = GraphBuilder(file_tree, {}, dependencies)
     graph = graph_builder.build_synapse_graph()
     clusters = graph_builder.generate_clusters()
+    modules = graph_builder.build_module_diagram()
 
     # Generate narrative, architecture summary, and agent prompt
     llm_client = LLMClient(api_key=settings.LLM_API_KEY)
     summary = {"hotspots": [], "clusters": clusters}
     narrative_generator = Narrative(summary, llm_client)
-    story = narrative_generator.generate_story()
-    arch_summary = narrative_generator.generate_architecture_summary()
-    agent_prompt = narrative_generator.generate_agent_prompt(intelligence, tree_viewer)
+    story = narrative_generator.generate_what_it_is()
+    how_it_works = narrative_generator.generate_how_it_works()
+    rebuild_prompt = narrative_generator.generate_rebuild_prompt(intelligence, tree_viewer)
 
     # Store results in DB
     analysis_data = {
@@ -78,11 +79,12 @@ def run_analysis(owner: str, repo: str, repo_id: str):
             "hotspots": [],
         },
         "clusters": clusters,
+        "modules": modules,
         "narrative": story,
-        "architecture_summary": arch_summary,
+        "how_it_works": how_it_works,
         "intelligence": intelligence,
         "tree_viewer": tree_viewer,
-        "agent_prompt": agent_prompt,
+        "rebuild_prompt": rebuild_prompt,
     }
     db_client.store_analysis_result(repo_id, analysis_data)
     return analysis_data

@@ -15,13 +15,16 @@ class GitHubClient:
         if self.token and self.token.strip() and self.token != "your_github_token_here":
             self.headers["Authorization"] = f"token {self.token}"
         self.api_url = "https://api.github.com"
+        self._file_cache = {}
+        self._session = requests.Session()
+        self._session.headers.update(self.headers)
 
     def get_repo(self, owner: str, repo: str) -> Dict[str, Any]:
         """
         Retrieves repository information.
         """
         url = f"{self.api_url}/repos/{owner}/{repo}"
-        response = requests.get(url, headers=self.headers)
+        response = self._session.get(url)
         response.raise_for_status()
         return response.json()
 
@@ -33,7 +36,7 @@ class GitHubClient:
         commits = []
         for page in range(1, max_chunks + 1):
             params = {"per_page": per_page, "page": page}
-            response = requests.get(url, headers=self.headers, params=params)
+            response = self._session.get(url, params=params)
             response.raise_for_status()
             data = response.json()
             if not data:
@@ -49,7 +52,7 @@ class GitHubClient:
         pull_requests = []
         for page in range(1, max_chunks + 1):
             params = {"per_page": per_page, "page": page, "state": "all"}
-            response = requests.get(url, headers=self.headers, params=params)
+            response = self._session.get(url, params=params)
             response.raise_for_status()
             data = response.json()
             if not data:
@@ -62,7 +65,7 @@ class GitHubClient:
         Fetches the programming languages used in the repository.
         """
         url = f"{self.api_url}/repos/{owner}/{repo}/languages"
-        response = requests.get(url, headers=self.headers)
+        response = self._session.get(url)
         response.raise_for_status()
         return response.json()
 
@@ -72,7 +75,7 @@ class GitHubClient:
         """
         url = f"{self.api_url}/repos/{owner}/{repo}/contributors"
         params = {"per_page": 100}
-        response = requests.get(url, headers=self.headers, params=params)
+        response = self._session.get(url, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -83,7 +86,7 @@ class GitHubClient:
         repo_info = self.get_repo(owner, repo)
         default_branch = repo_info.get("default_branch", "main")
         url = f"{self.api_url}/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1"
-        response = requests.get(url, headers=self.headers)
+        response = self._session.get(url)
         response.raise_for_status()
         data = response.json()
         return data.get("tree", [])
@@ -91,12 +94,19 @@ class GitHubClient:
     def get_file_content(self, owner: str, repo: str, file_path: str) -> str:
         """
         Fetches the raw content of a specific file from the repository.
+        Uses in-memory cache to avoid repeated API calls for the same file.
         """
+        cache_key = f"{owner}/{repo}/{file_path}"
+        if cache_key in self._file_cache:
+            return self._file_cache[cache_key]
+
         url = f"{self.api_url}/repos/{owner}/{repo}/contents/{file_path}"
         headers = self.headers.copy()
-        headers["Accept"] = "application/vnd.github.raw" # Request raw content
-        response = requests.get(url, headers=headers)
+        headers["Accept"] = "application/vnd.github.raw"
+        response = self._session.get(url, headers=headers)
         response.raise_for_status()
-        return response.text
+        content = response.text
+        self._file_cache[cache_key] = content
+        return content
 
 github_client = GitHubClient()

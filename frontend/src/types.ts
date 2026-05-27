@@ -30,19 +30,39 @@ export interface Intelligence {
   open_prs?: number;
 }
 
-export interface AgentPrompt {
+export interface RebuildPrompt {
   markdown: string;
   structured: string;
   json: object;
 }
 
+export interface ModuleNode {
+  id: string;
+  type: 'input' | 'default' | 'output' | 'group';
+  data: { label: string; description?: string; icon?: string; layer?: string };
+  position: { x: number; y: number };
+}
+
+export interface ModuleEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface ModuleDiagram {
+  nodes: ModuleNode[];
+  edges: ModuleEdge[];
+}
+
 export interface AnalysisResult extends HistoryItem {
   graph: GraphData;
   narrative: string;
-  architecture_summary?: string;
+  how_it_works?: string;
   intelligence?: Intelligence;
   tree_viewer?: Record<string, any>;
-  agent_prompt?: AgentPrompt;
+  rebuild_prompt?: RebuildPrompt;
+  modules?: ModuleDiagram;
   metrics: {
     hotspots: string[];
   };

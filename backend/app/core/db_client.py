@@ -41,8 +41,9 @@ class DBClient:
             "clusters": None,
             "intelligence": None,
             "tree_viewer": None,
-            "architecture_summary": None,
-            "agent_prompt": None,
+            "how_it_works": None,
+            "rebuild_prompt": None,
+            "modules": None,
         }
         self.redis_client.set(f"repo:{owner}:{name}", repo_id)
         self.redis_client.set(f"repo_id:{repo_id}", json.dumps(new_repo))
@@ -92,7 +93,7 @@ class DBClient:
         """
         Stores the final analysis result for a repository.
         Persists all Phase 1 fields: graph, metrics, narrative, clusters,
-        intelligence, tree_viewer, architecture_summary, agent_prompt.
+        intelligence, tree_viewer, how_it_works, rebuild_prompt, modules.
         """
         repo_data_str = self.redis_client.get(f"repo_id:{repo_id}")
         if repo_data_str:
@@ -105,8 +106,9 @@ class DBClient:
                 "clusters": analysis_data.get("clusters"),
                 "intelligence": analysis_data.get("intelligence"),
                 "tree_viewer": analysis_data.get("tree_viewer"),
-                "architecture_summary": analysis_data.get("architecture_summary"),
-                "agent_prompt": analysis_data.get("agent_prompt"),
+                "how_it_works": analysis_data.get("how_it_works"),
+                "rebuild_prompt": analysis_data.get("rebuild_prompt"),
+                "modules": analysis_data.get("modules"),
             })
             self.redis_client.set(f"repo_id:{repo_id}", json.dumps(repo_data))
             job_id = analysis_data.get("job_id")
