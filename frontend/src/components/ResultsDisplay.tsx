@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/
 import GraphDisplay from "./GraphDisplay";
 import type { AnalysisResult } from "@/types";
 import { Bot, GitGraph, FileText, Activity, Info, ChevronDown, ChevronUp, Star, Users, Clock, Code, Terminal, Download, Copy, GitPullRequest } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +19,7 @@ interface ResultsProps {
   data: AnalysisResult;
 }
 
-const containerVariants: any = {
+const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -27,43 +27,69 @@ const containerVariants: any = {
       staggerChildren: 0.1,
     },
   },
-};
+} satisfies Variants;
 
-const itemVariants: any = {
+const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
       duration: 0.5,
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   },
+} satisfies Variants;
+
+type TreeNode = { [key: string]: TreeNode };
+
+const renderTree = (node: TreeNode, path: string = "") => {
+  return (
+    <ul className="pl-6 border-l-2 border-border/30 border-dashed ml-3 mt-2">
+      {Object.keys(node).map((key) => {
+        return (
+          <li key={path + key} className="my-2 font-mono text-lg text-foreground">
+            <span className="font-bold text-primary">📁 {key}/</span>
+            {Object.keys(node[key]).length > 0 && renderTree(node[key], path + key + "/")}
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
+
+const TreeViewer = ({ data }: { data: TreeNode }) => {
+  if (!data) return null;
+  return (
+    <div className="bg-card p-6 rough-border sketch-shadow tape-corner -rotate-1 max-h-100 overflow-y-auto">
+      <h3 className="text-3xl font-marker mb-4 border-b-2 border-border border-dashed pb-2 flex items-center gap-2">
+         <FileText className="w-6 h-6 text-primary" /> Directory Tree
+      </h3>
+      {renderTree(data)}
+    </div>
+  );
 };
 
 const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
   const [showAllClusters, setShowAllClusters] = useState(false);
 
-  if (!data) {
-    return null;
-  }
+  const graphDataMemo = useMemo(() => data?.graph ?? { nodes: [], links: [] }, [data]);
 
-  // Filter graph data based on selected cluster
-  const graphData = data.graph ?? { nodes: [], links: [] };
   const filteredGraphData = useMemo(() => {
-    if (!selectedCluster) return graphData;
+    if (!selectedCluster || !graphDataMemo) return graphDataMemo;
 
-    const nodes = graphData.nodes.filter((node: any) => node.group === selectedCluster);
-    const nodeIds = new Set(nodes.map((n: any) => n.id));
-    const links = graphData.links.filter(
-      (link: any) => nodeIds.has(link.source.id || link.source) && nodeIds.has(link.target.id || link.target)
+    const nodes = graphDataMemo.nodes.filter((node) => node.group === selectedCluster);
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    const getId = (val: string | { id: string }) => typeof val === "object" ? val.id : val;
+    const links = graphDataMemo.links.filter(
+      (link) => nodeIds.has(getId(link.source as string | { id: string })) && nodeIds.has(getId(link.target as string | { id: string }))
     );
 
     return { nodes, links };
-  }, [graphData, selectedCluster]);
+  }, [graphDataMemo, selectedCluster]);
 
-  const clusters = data.clusters ?? {};
+  const clusters = data?.clusters ?? {};
   const clusterKeys = Object.keys(clusters).filter(key => {
     // Check if key is empty/whitespace
     if (!key || key.trim() === "") return false;
@@ -74,33 +100,11 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
   });
   const displayedClusters = showAllClusters ? clusterKeys : clusterKeys.slice(0, 10);
   const hasMoreClusters = clusterKeys.length > 10;
-  const hotspots = data.metrics?.hotspots ?? [];
+  const hotspots = data?.metrics?.hotspots ?? [];
 
-  const TreeViewer = ({ data }: { data: any }) => {
-    if (!data) return null;
-    const renderTree = (node: any, path: string = "") => {
-      return (
-        <ul className="pl-6 border-l-2 border-border/30 border-dashed ml-3 mt-2">
-          {Object.keys(node).map((key) => {
-            return (
-              <li key={path + key} className="my-2 font-mono text-lg text-foreground">
-                <span className="font-bold text-primary">📁 {key}/</span>
-                {Object.keys(node[key]).length > 0 && renderTree(node[key], path + key + "/")}
-              </li>
-            );
-          })}
-        </ul>
-      );
-    };
-    return (
-      <div className="bg-card p-6 rough-border sketch-shadow tape-corner -rotate-1 max-h-[400px] overflow-y-auto">
-        <h3 className="text-3xl font-marker mb-4 border-b-2 border-border border-dashed pb-2 flex items-center gap-2">
-           <FileText className="w-6 h-6 text-primary" /> Directory Tree
-        </h3>
-        {renderTree(data)}
-      </div>
-    );
-  };
+  if (!data) {
+    return null;
+  }
 
 
   return (
@@ -171,7 +175,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
                    <Terminal className="w-6 h-6 text-primary" /> AI Agent Prompt Export
                 </h3>
                 <p className="font-hand text-xl mb-4 text-foreground/80">Use this prompt to inject the repository context into your favorite AI agent.</p>
-                <div className="flex-1 bg-card p-4 font-mono text-sm overflow-y-auto max-h-[250px] rough-border mb-4 text-foreground/80">
+                <div className="flex-1 bg-card p-4 font-mono text-sm overflow-y-auto max-h-62.5 rough-border mb-4 text-foreground/80">
                    {data.agent_prompt.structured}
                 </div>
                 <div className="flex gap-4 mt-auto">
@@ -192,7 +196,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
           <div className="lg:col-span-2 space-y-6">
               {/* Graph Container */}
               <motion.div variants={itemVariants} className="mt-4">
-                 <div className="bg-card p-2 rough-border sketch-shadow tape-corner -rotate-1 relative group h-[450px]">
+                 <div className="bg-card p-2 rough-border sketch-shadow tape-corner -rotate-1 relative group h-112.5">
                      <div className="absolute top-4 left-4 z-10 bg-secondary px-4 py-2 rough-border sketch-shadow font-hand font-bold text-xl text-secondary-foreground flex items-center gap-2 -rotate-2">
                        <Activity className="w-5 h-5 text-primary animate-pulse" />
                        {selectedCluster ? `Filtering: ${selectedCluster}` : "Full Architecture"}
@@ -226,7 +230,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
                               "sticky-note px-4 py-3 font-hand text-xl font-bold transition-transform",
                               index % 2 === 0 ? "rotate-2" : "-rotate-2",
                               cluster === selectedCluster 
-                                ? "scale-110 z-10 outline outline-4 outline-primary"
+                                ? "scale-110 z-10 outline outline-primary"
                                 : "hover:scale-105 hover:z-10"
                           )}
                         >
@@ -278,7 +282,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
                 </div>
                 <CardDescription className="font-hand text-xl">High complexity zones requiring attention.</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6 overflow-y-auto flex-1 max-h-[800px]">
+              <CardContent className="pt-6 overflow-y-auto flex-1 max-h-200">
                 <ul className="space-y-4">
                   {hotspots.map((hotspot: string) => (
                     <li key={hotspot} className="text-xl font-hand font-bold text-foreground bg-transparent px-3 py-3 flex items-start gap-3 border-b-2 border-destructive/30 border-dashed hover:bg-destructive/10 transition-colors">
