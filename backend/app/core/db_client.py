@@ -84,9 +84,15 @@ class DBClient:
             return job_data
         return None
 
-    def store_analysis_result(self, repo_id: str, analysis_data: Dict[str, Any]):
+    def store_analysis_result(
+        self,
+        repo_id: str,
+        analysis_data: Dict[str, Any],
+    ):
         """
         Stores the final analysis result for a repository.
+        Persists all Phase 1 fields: graph, metrics, narrative, clusters,
+        intelligence, tree_viewer, architecture_summary, agent_prompt.
         """
         repo_data_str = self.redis_client.get(f"repo_id:{repo_id}")
         if repo_data_str:

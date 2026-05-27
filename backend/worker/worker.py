@@ -1,4 +1,3 @@
-from app.core.import_parser import ImportParser
 import os
 import sys
 from celery import Celery
@@ -8,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.config import settings
 from app.core.github_client import GitHubClient
-from app.core.metrics import Metrics
+from app.core.import_parser import ImportParser
 from app.core.graph_builder import GraphBuilder
 from app.core.narrative import Narrative
 from app.core.llm_client import LLMClient
@@ -56,16 +55,25 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
         stars = repo_info.get("stargazers_count", 0)
         languages = github_client.get_languages(owner, repo)
         contributors = github_client.get_contributors(owner, repo)
-        commits = github_client.get_commits(owner, repo, per_page=100, max_chunks=1)
+        commits = github_client.get_commits(owner, repo, per_page=100, max_chunks=5)
+        pull_requests = github_client.get_pull_requests(owner, repo, per_page=100, max_chunks=3)
+
+        # Calculate PR merge frequency
+        merged_prs = [pr for pr in pull_requests if pr.get("merged_at")]
+        open_prs = [pr for pr in pull_requests if pr.get("state") == "open"]
 
         intelligence = {
             "repo_name": f"{owner}/{repo}",
             "stars": stars,
             "contributors": len(contributors),
             "recent_commits": len(commits),
-            "tech_stack": list(languages.keys())
+            "tech_stack": list(languages.keys()),
+            "total_prs": len(pull_requests),
+            "merged_prs": len(merged_prs),
+            "open_prs": len(open_prs),
         }
         
+        # 2. Build directory tree viewer
         def build_tree(paths):
             tree = {}
             for path in paths:
@@ -78,23 +86,18 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
         tree_paths = [item['path'] for item in file_tree if item['type'] == 'tree']
         tree_viewer = build_tree(tree_paths)
 
-        # 2. Parse imports to find dependencies
+        # 3. Parse imports to find dependencies
         import_parser = ImportParser(github_client)
         dependencies = import_parser.get_dependencies(owner, repo, file_tree)
 
-        # 3. Calculate metrics
-        metrics_analyzer = Metrics(file_tree)
-        churn = metrics_analyzer.calculate_churn()
-        hotspots = metrics_analyzer.identify_hotspots(churn)
-
-        # 4. Build graph
-        graph_builder = GraphBuilder(file_tree, churn, dependencies)
+        # 4. Build graph (pass empty churn_data since we removed metrics)
+        graph_builder = GraphBuilder(file_tree, {}, dependencies)
         graph = graph_builder.build_synapse_graph()
         clusters = graph_builder.generate_clusters()
 
         # 5. Generate narrative, architecture summary, and agent prompt
         llm_client = LLMClient(api_key=settings.LLM_API_KEY)
-        summary = {"hotspots": hotspots, "clusters": clusters}
+        summary = {"hotspots": [], "clusters": clusters}
         narrative_generator = Narrative(summary, llm_client)
         story = narrative_generator.generate_story()
         arch_summary = narrative_generator.generate_architecture_summary()
@@ -105,8 +108,7 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
             "job_id": self.request.id,
             "graph": graph,
             "metrics": {
-                "churn": churn,
-                "hotspots": hotspots,
+                "hotspots": [],
             },
             "clusters": clusters,
             "narrative": story,

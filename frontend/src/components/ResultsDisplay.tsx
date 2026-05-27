@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import GraphDisplay from "./GraphDisplay";
 import type { AnalysisResult } from "@/types";
-import { Bot, GitGraph, FileText, Activity, Info, ChevronDown, ChevronUp, Star, Users, Clock, Code, Terminal, Download, Copy } from "lucide-react";
+import { Bot, GitGraph, FileText, Activity, Info, ChevronDown, ChevronUp, Star, Users, Clock, Code, Terminal, Download, Copy, GitPullRequest } from "lucide-react";
 import { motion } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
@@ -50,28 +50,31 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
   }
 
   // Filter graph data based on selected cluster
+  const graphData = data.graph ?? { nodes: [], links: [] };
   const filteredGraphData = useMemo(() => {
-    if (!selectedCluster) return data.graph;
+    if (!selectedCluster) return graphData;
 
-    const nodes = data.graph.nodes.filter((node: any) => node.group === selectedCluster);
+    const nodes = graphData.nodes.filter((node: any) => node.group === selectedCluster);
     const nodeIds = new Set(nodes.map((n: any) => n.id));
-    const links = data.graph.links.filter(
+    const links = graphData.links.filter(
       (link: any) => nodeIds.has(link.source.id || link.source) && nodeIds.has(link.target.id || link.target)
     );
 
     return { nodes, links };
-  }, [data.graph, selectedCluster]);
+  }, [graphData, selectedCluster]);
 
-  const clusterKeys = Object.keys(data.clusters).filter(key => {
+  const clusters = data.clusters ?? {};
+  const clusterKeys = Object.keys(clusters).filter(key => {
     // Check if key is empty/whitespace
     if (!key || key.trim() === "") return false;
     
     // Check if the cluster array exists and has length > 0
-    const clusterItems = data.clusters[key];
+    const clusterItems = clusters[key];
     return Array.isArray(clusterItems) && clusterItems.length > 0;
   });
   const displayedClusters = showAllClusters ? clusterKeys : clusterKeys.slice(0, 10);
   const hasMoreClusters = clusterKeys.length > 10;
+  const hotspots = data.metrics?.hotspots ?? [];
 
   const TreeViewer = ({ data }: { data: any }) => {
     if (!data) return null;
@@ -120,8 +123,13 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
             <Clock className="w-5 h-5" /> {data.intelligence.recent_commits} Recent Commits
           </div>
           <div className="bg-primary text-primary-foreground font-mono font-bold text-lg px-6 py-3 sketch-shadow -rotate-1 rough-border flex items-center gap-2 max-w-lg truncate">
-            <Code className="w-5 h-5" /> Stack: {data.intelligence.tech_stack.slice(0, 3).join(", ")}
+            <Code className="w-5 h-5" /> Stack: {(data.intelligence.tech_stack ?? []).slice(0, 3).join(", ")}
           </div>
+          {data.intelligence.total_prs != null && (
+            <div className="bg-card text-foreground font-hand font-bold text-2xl px-6 py-2 sketch-shadow rotate-1 rough-border flex items-center gap-2">
+              <GitPullRequest className="w-5 h-5 text-green-600" /> {data.intelligence.merged_prs} Merged / {data.intelligence.open_prs} Open PRs
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -272,13 +280,13 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
               </CardHeader>
               <CardContent className="pt-6 overflow-y-auto flex-1 max-h-[800px]">
                 <ul className="space-y-4">
-                  {data.metrics.hotspots.map((hotspot: string) => (
+                  {hotspots.map((hotspot: string) => (
                     <li key={hotspot} className="text-xl font-hand font-bold text-foreground bg-transparent px-3 py-3 flex items-start gap-3 border-b-2 border-destructive/30 border-dashed hover:bg-destructive/10 transition-colors">
                       <span className="w-4 h-4 rounded-full border-4 border-destructive mt-1 shrink-0 sketch-shadow" />
                       <span className="break-all">{hotspot}</span>
                     </li>
                   ))}
-                  {data.metrics.hotspots.length === 0 && (
+                  {hotspots.length === 0 && (
                       <li className="text-2xl font-hand text-foreground italic text-center py-8 opacity-70">No significant hotspots detected. 🎉</li>
                   )}
                 </ul>

@@ -26,6 +26,9 @@ export interface Intelligence {
   contributors: number;
   recent_commits: number;
   tech_stack: string[];
+  total_prs?: number;
+  merged_prs?: number;
+  open_prs?: number;
 }
 
 export interface AgentPrompt {
