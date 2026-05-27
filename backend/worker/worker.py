@@ -52,6 +52,32 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
         github_client = GitHubClient()
         file_tree = github_client.get_file_tree(owner, repo)
 
+        repo_info = github_client.get_repo(owner, repo)
+        stars = repo_info.get("stargazers_count", 0)
+        languages = github_client.get_languages(owner, repo)
+        contributors = github_client.get_contributors(owner, repo)
+        commits = github_client.get_commits(owner, repo, per_page=100, max_chunks=1)
+
+        intelligence = {
+            "repo_name": f"{owner}/{repo}",
+            "stars": stars,
+            "contributors": len(contributors),
+            "recent_commits": len(commits),
+            "tech_stack": list(languages.keys())
+        }
+        
+        def build_tree(paths):
+            tree = {}
+            for path in paths:
+                parts = path.split('/')
+                current = tree
+                for part in parts:
+                    current = current.setdefault(part, {})
+            return tree
+            
+        tree_paths = [item['path'] for item in file_tree if item['type'] == 'tree']
+        tree_viewer = build_tree(tree_paths)
+
         # 2. Parse imports to find dependencies
         import_parser = ImportParser(github_client)
         dependencies = import_parser.get_dependencies(owner, repo, file_tree)
@@ -66,11 +92,13 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
         graph = graph_builder.build_synapse_graph()
         clusters = graph_builder.generate_clusters()
 
-        # 5. Generate narrative
+        # 5. Generate narrative, architecture summary, and agent prompt
         llm_client = LLMClient(api_key=settings.LLM_API_KEY)
         summary = {"hotspots": hotspots, "clusters": clusters}
         narrative_generator = Narrative(summary, llm_client)
         story = narrative_generator.generate_story()
+        arch_summary = narrative_generator.generate_architecture_summary()
+        agent_prompt = narrative_generator.generate_agent_prompt(intelligence, tree_viewer)
 
         # 6. Store results in DB
         analysis_data = {
@@ -82,6 +110,10 @@ def analyze_repository(self, owner: str, repo: str, repo_id: str):
             },
             "clusters": clusters,
             "narrative": story,
+            "architecture_summary": arch_summary,
+            "intelligence": intelligence,
+            "tree_viewer": tree_viewer,
+            "agent_prompt": agent_prompt,
         }
         db_client.store_analysis_result(repo_id, analysis_data)
 

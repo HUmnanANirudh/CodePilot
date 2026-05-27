@@ -39,3 +39,51 @@ class Narrative:
             "Generate the narrative now."
         )
         return prompt
+
+    def generate_architecture_summary(self):
+        prompt = (
+            "You are a principal software engineer. Based on the following repository clusters and hotspots, "
+            "provide a concise, high-level Architecture Summary explaining how this application is likely structured, "
+            "the core components, and how they interact. Keep it under 200 words.\n\n"
+        )
+        for cluster, files in self.summary.get('clusters', {}).items():
+            prompt += f"  - **{cluster}**\n"
+        return self.llm_client.generate(prompt)
+
+    def generate_agent_prompt(self, intelligence: dict, tree_viewer: dict):
+        import json
+        tech_stack = ", ".join(intelligence.get("tech_stack", []))
+        clusters = list(self.summary.get("clusters", {}).keys())
+        
+        markdown_prompt = (
+            f"# System Prompt for AI Agent\n\n"
+            f"You are operating within the `{intelligence.get('repo_name', 'repository')}` codebase.\n\n"
+            f"## Tech Stack\n{tech_stack}\n\n"
+            f"## Core Architecture\n"
+            f"The application is organized into these main clusters:\n"
+        )
+        for c in clusters:
+            markdown_prompt += f"- {c}\n"
+            
+        markdown_prompt += "\n## Key Hotspots (Focus Areas)\n"
+        for h in self.summary.get("hotspots", []):
+            markdown_prompt += f"- {h}\n"
+
+        structured_prompt = (
+            f"Repository context: {intelligence.get('repo_name', 'Project')} using {tech_stack}. "
+            f"Main areas: {', '.join(clusters)}."
+        )
+
+        return {
+            "markdown": markdown_prompt,
+            "structured": structured_prompt,
+            "json": {
+                "role": "system",
+                "content": markdown_prompt,
+                "context": {
+                    "tech_stack": intelligence.get("tech_stack", []),
+                    "clusters": clusters,
+                    "hotspots": self.summary.get("hotspots", [])
+                }
+            }
+        }

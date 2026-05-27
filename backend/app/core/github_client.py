@@ -11,7 +11,9 @@ from app.config import settings
 class GitHubClient:
     def __init__(self, token: str = settings.GITHUB_TOKEN):
         self.token = token
-        self.headers = {"Authorization": f"token {self.token}"}
+        self.headers = {}
+        if self.token and self.token.strip() and self.token != "your_github_token_here":
+            self.headers["Authorization"] = f"token {self.token}"
         self.api_url = "https://api.github.com"
 
     def get_repo(self, owner: str, repo: str) -> Dict[str, Any]:
@@ -54,6 +56,25 @@ class GitHubClient:
                 break
             pull_requests.extend(data)
         return pull_requests
+
+    def get_languages(self, owner: str, repo: str) -> Dict[str, int]:
+        """
+        Fetches the programming languages used in the repository.
+        """
+        url = f"{self.api_url}/repos/{owner}/{repo}/languages"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+
+    def get_contributors(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+        """
+        Fetches the contributors for a repository.
+        """
+        url = f"{self.api_url}/repos/{owner}/{repo}/contributors"
+        params = {"per_page": 100}
+        response = requests.get(url, headers=self.headers, params=params)
+        response.raise_for_status()
+        return response.json()
 
     def get_file_tree(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         """

@@ -1,8 +1,7 @@
 import os
 import sys
-import google.generativeai as genai
+from google.genai import client
 
-# Add the project root to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from app.config import settings
@@ -10,7 +9,7 @@ from app.config import settings
 class LLMClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
-        genai.configure(api_key=self.api_key)
+        self._client = client.Client(api_key=self.api_key)
 
     def generate(self, prompt: str):
         """
@@ -26,8 +25,10 @@ class LLMClient:
         full_prompt = system_prompt + prompt
 
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            response = model.generate_content(full_prompt)
+            response = self._client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=full_prompt
+            )
             return response.text
         except Exception as e:
             print(f"Error generating narrative: {e}")

@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import GraphDisplay from "./GraphDisplay";
 import type { AnalysisResult } from "@/types";
-import { Bot, GitGraph, FileText, Activity, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, GitGraph, FileText, Activity, Info, ChevronDown, ChevronUp, Star, Users, Clock, Code, Terminal, Download, Copy } from "lucide-react";
 import { motion } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,32 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
   const displayedClusters = showAllClusters ? clusterKeys : clusterKeys.slice(0, 10);
   const hasMoreClusters = clusterKeys.length > 10;
 
+  const TreeViewer = ({ data }: { data: any }) => {
+    if (!data) return null;
+    const renderTree = (node: any, path: string = "") => {
+      return (
+        <ul className="pl-6 border-l-2 border-border/30 border-dashed ml-3 mt-2">
+          {Object.keys(node).map((key) => {
+            return (
+              <li key={path + key} className="my-2 font-mono text-lg text-foreground">
+                <span className="font-bold text-primary">📁 {key}/</span>
+                {Object.keys(node[key]).length > 0 && renderTree(node[key], path + key + "/")}
+              </li>
+            );
+          })}
+        </ul>
+      );
+    };
+    return (
+      <div className="bg-card p-6 rough-border sketch-shadow tape-corner -rotate-1 max-h-[400px] overflow-y-auto">
+        <h3 className="text-3xl font-marker mb-4 border-b-2 border-border border-dashed pb-2 flex items-center gap-2">
+           <FileText className="w-6 h-6 text-primary" /> Directory Tree
+        </h3>
+        {renderTree(data)}
+      </div>
+    );
+  };
+
 
   return (
     <motion.div
@@ -81,9 +107,27 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
       animate="visible"
       className="w-full space-y-6"
     >
+      {/* GitHub Intelligence Top Bar */}
+      {data.intelligence && (
+        <motion.div variants={itemVariants} className="flex flex-wrap gap-4 items-center justify-center mb-6">
+          <div className="bg-secondary text-secondary-foreground font-hand font-bold text-2xl px-6 py-2 sketch-shadow rotate-1 rough-border flex items-center gap-2">
+            <Star className="w-5 h-5 text-yellow-600" /> {data.intelligence.stars} Stars
+          </div>
+          <div className="bg-card text-foreground font-hand font-bold text-2xl px-6 py-2 sketch-shadow -rotate-2 rough-border flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" /> {data.intelligence.contributors} Contributors
+          </div>
+          <div className="bg-muted text-muted-foreground font-hand font-bold text-2xl px-6 py-2 sketch-shadow rotate-2 rough-border flex items-center gap-2">
+            <Clock className="w-5 h-5" /> {data.intelligence.recent_commits} Recent Commits
+          </div>
+          <div className="bg-primary text-primary-foreground font-mono font-bold text-lg px-6 py-3 sketch-shadow -rotate-1 rough-border flex items-center gap-2 max-w-lg truncate">
+            <Code className="w-5 h-5" /> Stack: {data.intelligence.tech_stack.slice(0, 3).join(", ")}
+          </div>
+        </motion.div>
+      )}
+
       {/* Narrative Section */}
-      <motion.div variants={itemVariants}>
-        <div className="flex gap-6 p-8 bg-card rough-border sketch-shadow tape-top rotate-1 relative group">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex gap-6 p-8 bg-card rough-border sketch-shadow tape-top rotate-1 relative group h-full">
              <Avatar className="w-14 h-14 mt-1 shrink-0 bg-transparent rough-border sketch-shadow -rotate-6">
               <AvatarFallback className="bg-primary text-primary-foreground font-marker">
                 <Bot className="w-8 h-8" />
@@ -98,6 +142,40 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
               </div>
             </div>
         </div>
+
+        <div className="flex gap-6 p-8 bg-muted rough-border sketch-shadow tape-corner -rotate-1 relative group h-full flex-col">
+            <h3 className="text-4xl font-marker text-foreground rotate-2 mb-2 inline-block bg-card px-4 py-1 tape sketch-shadow self-start">
+                Architecture Summary
+            </h3>
+            <div className="prose dark:prose-invert max-w-none text-muted-foreground leading-relaxed text-xl font-sans mt-4">
+                 <ReactMarkdown>{data.architecture_summary || "*No architecture summary generated.*"}</ReactMarkdown>
+            </div>
+        </div>
+      </motion.div>
+
+      {/* Tree Viewer & AI Agent Prompt */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {data.tree_viewer && <TreeViewer data={data.tree_viewer} />}
+          
+          {data.agent_prompt && (
+             <div className="bg-primary/5 p-6 rough-border sketch-shadow tape-top rotate-2 relative flex flex-col">
+                <h3 className="text-3xl font-marker mb-4 border-b-2 border-primary/20 border-dashed pb-2 flex items-center gap-2">
+                   <Terminal className="w-6 h-6 text-primary" /> AI Agent Prompt Export
+                </h3>
+                <p className="font-hand text-xl mb-4 text-foreground/80">Use this prompt to inject the repository context into your favorite AI agent.</p>
+                <div className="flex-1 bg-card p-4 font-mono text-sm overflow-y-auto max-h-[250px] rough-border mb-4 text-foreground/80">
+                   {data.agent_prompt.structured}
+                </div>
+                <div className="flex gap-4 mt-auto">
+                   <Button onClick={() => navigator.clipboard.writeText(data.agent_prompt!.markdown)} className="flex-1 bg-primary text-primary-foreground font-bold hover:scale-105 transition-transform sketch-shadow rough-border">
+                      <Copy className="w-4 h-4 mr-2" /> Copy Markdown
+                   </Button>
+                   <Button onClick={() => navigator.clipboard.writeText(JSON.stringify(data.agent_prompt!.json, null, 2))} variant="outline" className="flex-1 font-bold hover:scale-105 transition-transform sketch-shadow rough-border bg-card">
+                      <Download className="w-4 h-4 mr-2" /> Export JSON
+                   </Button>
+                </div>
+             </div>
+          )}
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
