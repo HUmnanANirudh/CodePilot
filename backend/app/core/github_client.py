@@ -1,6 +1,8 @@
 import os
 import sys
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from typing import List, Dict, Any
 
 # Add the project root to the python path
@@ -17,6 +19,18 @@ class GitHubClient:
         self.api_url = "https://api.github.com"
         self._file_cache = {}
         self._session = requests.Session()
+        
+        # Add retry mechanism for flaky network connections
+        retries = Retry(
+            total=5,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
+        
         self._session.headers.update(self.headers)
 
     def get_repo(self, owner: str, repo: str) -> Dict[str, Any]:
