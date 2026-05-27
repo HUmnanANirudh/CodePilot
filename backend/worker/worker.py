@@ -66,7 +66,7 @@ def run_analysis(owner: str, repo: str, repo_id: str):
 
     # Generate narrative, architecture summary, and agent prompt
     llm_client = LLMClient(api_key=settings.LLM_API_KEY)
-    summary = {"hotspots": [], "clusters": clusters}
+    summary = {"hotspots": [], "clusters": clusters, "tech_stack": list(languages.keys())}
     narrative_generator = Narrative(summary, llm_client)
     story = narrative_generator.generate_what_it_is()
     how_it_works = narrative_generator.generate_how_it_works()

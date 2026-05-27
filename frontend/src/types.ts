@@ -38,8 +38,18 @@ export interface RebuildPrompt {
 
 export interface ModuleNode {
   id: string;
-  type: 'input' | 'default' | 'output' | 'group';
-  data: { label: string; description?: string; icon?: string; layer?: string };
+  type: string;
+  data: {
+    label: string;
+    layer: string;
+    files: number;
+    fan_in: number;
+    fan_out: number;
+    centrality: number;
+    incoming: string[];
+    outgoing: string[];
+    [key: string]: unknown;
+  };
   position: { x: number; y: number };
 }
 

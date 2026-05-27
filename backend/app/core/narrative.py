@@ -1,3 +1,4 @@
+import os
 from .llm_client import LLMClient
 
 class Narrative:
@@ -6,36 +7,68 @@ class Narrative:
         self.llm_client = llm_client
 
     def generate_what_it_is(self):
+        """
+        Produces a sharp, scannable repo identity.
+        Structure: [one line identity] → [domain list] → [architecture style]
+        No fantasy metaphors. Max 150 words.
+        """
+        tech_stack = self.summary.get('tech_stack', [])
+        clusters = self.summary.get('clusters', {})
+        cluster_list = list(clusters.items())
+
         prompt = (
-            "You are an expert software architect who reads a repository for 5 minutes and describes it as a fable. "
-            "Based on the following clusters, write a brief, insightful narrative (2-3 paragraphs) about the repository's origin story, "
-            "the purpose, what problem it solves, and its personality. "
-            "Your tone should be warm, insightful, authoritative, and slightly informal. Use first person plural ('This codebase is a living ledger...'). "
-            "DO NOT use bullet points or lists.\n\n"
-            "**Key Architectural Clusters:**\n"
+            "You are a senior software architect analyzing a repository.\n"
+            "Provide a SCANNABLE repository identity in this exact format:\n\n"
+            "LINE 1: [Repository name] is [one sharp sentence describing what it IS and who it's for]\n\n"
+            "DOMAINS:\n"
+            "- [domain 1]\n"
+            "- [domain 2]\n\n"
+            "ARCHITECTURE STYLE: [e.g., modular systems library, layered monolith, event-driven microservices, monorepo workspace]\n\n"
+            f"Tech stack: {', '.join(tech_stack[:8]) if tech_stack else 'unknown'}\n\n"
+            "Key modules:\n"
         )
-        for cluster, files in self.summary.get('clusters', {}).items():
-            prompt += f"  - `{cluster}` ({len(files)} files)\n"
-        
-        prompt += "\nGenerate the fable now."
+        for cluster, files in cluster_list[:12]:
+            label = os.path.basename(cluster) if cluster and cluster != '.' else 'root'
+            prompt += f"- {label}: {len(files)} files\n"
+
+        prompt += "\nKeep under 150 words. Be precise, not poetic. No bullet points in the description."
         return self.llm_client.generate(prompt)
 
     def generate_how_it_works(self):
+        """
+        Describes execution flow and module interactions.
+        Structure: [entry points] → [data flow] → [key patterns] → [boundaries]
+        Max 200 words, structured with short sections.
+        """
+        clusters = self.summary.get('clusters', {})
+
         prompt = (
-            "You are a principal software engineer. Based on the following repository clusters, "
-            "describe the architecture flow. Explain what the core modules are, how data flows through them, "
-            "what the entry points are, and what the key design patterns are. "
-            "Produce a clear architectural narrative, not just a list of clusters.\n\n"
+            "You are a principal software engineer. Describe this repository's architecture as a SYSTEM MAP.\n"
+            "Use this EXACT format:\n\n"
+            "ENTRY POINTS:\n"
+            "[what triggers this system — API, CLI, UI, event listener]\n\n"
+            "EXECUTION FLOW:\n"
+            "[input] → [first layer] → [transformation] → [output]\n\n"
+            "ARCHITECTURAL PATTERN:\n"
+            "[layered / event-driven / pipe-and-filter / domain-driven / plugin / etc.]\n\n"
+            "KEY BOUNDARIES:\n"
+            "- [boundary 1]\n"
+            "- [boundary 2]\n\n"
+            "CRITICAL MODULES:\n"
         )
-        for cluster, files in self.summary.get('clusters', {}).items():
-            prompt += f"  - **{cluster}**\n"
+        for cluster, files in list(clusters.items())[:10]:
+            label = os.path.basename(cluster) if cluster and cluster != '.' else 'root'
+            prompt += f"- {label}\n"
+
+        prompt += "\nMax 200 words. Technical, structured, scannable. No filler."
         return self.llm_client.generate(prompt)
 
     def generate_rebuild_prompt(self, intelligence: dict, tree_viewer: dict):
         import json
         tech_stack = ", ".join(intelligence.get("tech_stack", []))
         clusters = list(self.summary.get("clusters", {}).keys())
-        
+        hotspots = self.summary.get("hotspots", [])
+
         markdown_prompt = (
             f"# System Prompt for AI Agent\n\n"
             f"You are operating within the `{intelligence.get('repo_name', 'repository')}` codebase.\n\n"
@@ -43,16 +76,17 @@ class Narrative:
             f"## Core Architecture\n"
             f"The application is organized into these main clusters:\n"
         )
-        for c in clusters:
+        for c in clusters[:15]:
             markdown_prompt += f"- {c}\n"
-            
-        markdown_prompt += "\n## Key Hotspots (Focus Areas)\n"
-        for h in self.summary.get("hotspots", []):
+
+        markdown_prompt += "\n## Primary Modules (High Centrality — Architectural Hinges)\n"
+        for h in hotspots[:10]:
             markdown_prompt += f"- {h}\n"
 
         structured_prompt = (
-            f"Repository context: {intelligence.get('repo_name', 'Project')} using {tech_stack}. "
-            f"Main areas: {', '.join(clusters)}."
+            f"Repository: {intelligence.get('repo_name', 'Project')} | "
+            f"Stack: {tech_stack} | "
+            f"Architecture: {len(clusters)} modules"
         )
 
         return {
@@ -63,8 +97,8 @@ class Narrative:
                 "content": markdown_prompt,
                 "context": {
                     "tech_stack": intelligence.get("tech_stack", []),
-                    "clusters": clusters,
-                    "hotspots": self.summary.get("hotspots", [])
+                    "clusters": clusters[:15],
+                    "hotspots": hotspots[:10]
                 }
             }
         }

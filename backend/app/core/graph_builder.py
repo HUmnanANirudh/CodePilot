@@ -48,7 +48,7 @@ class GraphBuilder:
             self.nodes.append({
                 "id": file_path,
                 "group": os.path.dirname(file_path),
-                "size": churn,  # Use churn to determine node size
+                "size": churn,
             })
 
         # Create edges based on dependencies
@@ -72,116 +72,157 @@ class GraphBuilder:
             if dir_name not in self.clusters:
                 self.clusters[dir_name] = []
             self.clusters[dir_name].append(node['id'])
-        
+
         filtered_clusters = {}
         for dir_name, files in self.clusters.items():
             depth = len(dir_name.split('/'))
             if len(files) >= min_size and depth <= max_depth:
                 filtered_clusters[dir_name] = files
-        
+
         return filtered_clusters
+
+    def _calc_cluster_metrics(self, filtered_clusters: Dict[str, List[str]]) -> Dict[str, Dict[str, int]]:
+        """
+        Calculate fan-in, fan-out, and centrality for each cluster.
+        Uses file-level import edges aggregated to cluster level.
+        """
+        # Build file → cluster mapping
+        file_to_cluster = {}
+        for cluster_id, files in filtered_clusters.items():
+            for f in files:
+                file_to_cluster[f] = cluster_id
+
+        # Count cross-cluster edges in both directions
+        fan_in = {c: 0 for c in filtered_clusters}
+        fan_out = {c: 0 for c in filtered_clusters}
+        incoming = {c: set() for c in filtered_clusters}  # who imports this cluster
+        outgoing = {c: set() for c in filtered_clusters}  # who this cluster imports
+
+        for dep in self.dependencies:
+            source_cluster = file_to_cluster.get(dep['source'])
+            target_cluster = file_to_cluster.get(dep['target'])
+            if source_cluster and target_cluster and source_cluster != target_cluster:
+                # source imports target, so source has fan_out++, target has fan_in++
+                fan_out[source_cluster] += 1
+                fan_in[target_cluster] += 1
+                outgoing[source_cluster].add(target_cluster)
+                incoming[target_cluster].add(source_cluster)
+
+        metrics = {}
+        for c in filtered_clusters:
+            fi = fan_in[c]
+            fo = fan_out[c]
+            # Harmonic centrality-like score: high when both in and out are high
+            centrality = (fi * fo) / (fi + fo + 1)
+            metrics[c] = {
+                "fan_in": fi,
+                "fan_out": fo,
+                "centrality": round(centrality, 2),
+                "incoming": list(incoming[c]),
+                "outgoing": list(outgoing[c])
+            }
+        return metrics
+
+    def _classify_layer(self, cluster_id: str, metrics: Dict[str, Dict[str, Any]]) -> str:
+        """
+        Classify cluster into layer based on fan-in/fan-out pattern:
+        - High fan-out, low fan-in → infrastructure (utility/bottom layer)
+        - High fan-in, low fan-out → core-service (central module, others depend on it)
+        - High fan-out AND fan-in → service (both imports and is imported)
+        - Low in/out → utility
+        """
+        m = metrics.get(cluster_id, {"fan_in": 0, "fan_out": 0})
+        fi = m["fan_in"]
+        fo = m["fan_out"]
+
+        if fi >= 5 and fo <= 2:
+            return "core-service"
+        elif fo >= 5 and fi <= 2:
+            return "infrastructure"
+        elif fo >= 3 and fi >= 3:
+            return "service"
+        elif fo <= 1 and fi <= 1:
+            return "utility"
+        else:
+            return "domain"
 
     def build_module_diagram(self) -> Dict[str, Any]:
         """
         Aggregates file-level graph to cluster-level module diagram.
-        Auto-classifies clusters into layer types (UI/State/Data/Infra/Business).
-        Returns {"nodes": [{"id", "type", "data": {"label", "description", "icon"}, "position": {"x", "y"}}], "edges": [{"source", "target", "label"}]}
+        Layer classification based on fan-in/fan-out centrality, not folder names.
+        Returns nodes with layer types and edges with semantic relationship labels.
         """
         nodes = []
         edges = []
-        
-        # Helper to classify a directory into a layer
-        def classify_layer(path: str) -> str:
-            path_lower = path.lower()
-            if any(p in path_lower for p in ['pages', 'components', 'views', 'screens', 'layouts']):
-                return 'ui'
-            elif any(p in path_lower for p in ['store', 'state', 'context', 'recoil', 'zustand', 'redux']):
-                return 'state'
-            elif any(p in path_lower for p in ['services', 'api', 'models', 'db', 'queries', 'hooks']):
-                return 'data'
-            elif any(p in path_lower for p in ['config', 'lib', 'core', 'utils', 'helpers', 'middleware']):
-                return 'infra'
-            else:
-                return 'business'
-                
-        # Helper for assigning Y position based on layer
-        def get_layer_y(layer: str) -> int:
-            return {
-                'ui': 0,
-                'state': 150,
-                'data': 300,
-                'business': 450,
-                'infra': 600
-            }.get(layer, 450)
 
-        # Mapping layer string to node type
-        def get_node_type(layer: str) -> str:
-            if layer == 'ui':
-                return 'input'
-            elif layer == 'infra':
-                return 'output'
-            return 'default'
+        # Get filtered clusters
+        filtered = self.generate_clusters(min_size=2, max_depth=4)
+        if not filtered:
+            return {"nodes": [], "edges": []}
 
-        # Count cluster frequencies to space them on X axis
-        layer_counts = {'ui': 0, 'state': 0, 'data': 0, 'business': 0, 'infra': 0}
-        
-        # Build Nodes
-        # Use filtered clusters to only show meaningful ones
-        clusters_to_use = self.clusters  # Or we could call generate_clusters() again if needed
-        # We will use self.generate_clusters() to get the filtered ones
-        filtered = self.generate_clusters()
-        
+        # Calculate cluster metrics (fan-in, fan-out, centrality)
+        metrics = self._calc_cluster_metrics(filtered)
+
+        # Layer Y positions (UI at top, infra at bottom)
+        layer_y = {
+            'ui': 50,
+            'core-service': 180,
+            'service': 310,
+            'domain': 440,
+            'infrastructure': 570,
+            'utility': 700,
+        }
+        layer_color = {
+            'ui': '#6366f1',
+            'core-service': '#f59e0b',
+            'service': '#10b981',
+            'domain': '#8b5cf6',
+            'infrastructure': '#64748b',
+            'utility': '#6b7280',
+        }
+
+        layer_x_counters = {l: 0 for l in layer_y}
+
         for cluster_id, files in filtered.items():
-            if not cluster_id or cluster_id == '.':
-                label = 'root'
-            else:
-                label = os.path.basename(cluster_id)
-                if not label:
-                    label = cluster_id
-            
-            layer = classify_layer(cluster_id)
-            count = layer_counts[layer]
-            layer_counts[layer] += 1
-            
+            label = os.path.basename(cluster_id) if cluster_id and cluster_id != '.' else 'root'
+            layer = self._classify_layer(cluster_id, metrics)
+            m = metrics.get(cluster_id, {})
+
+            x_counter = layer_x_counters[layer]
+            layer_x_counters[layer] += 1
+
             nodes.append({
                 "id": cluster_id,
-                "type": get_node_type(layer),
+                "type": "default",
                 "data": {
                     "label": label,
-                    "description": f"{len(files)} files",
-                    "layer": layer
+                    "layer": layer,
+                    "files": len(files),
+                    "fan_in": m.get("fan_in", 0),
+                    "fan_out": m.get("fan_out", 0),
+                    "centrality": m.get("centrality", 0),
+                    "incoming": m.get("incoming", []),
+                    "outgoing": m.get("outgoing", []),
                 },
                 "position": {
-                    "x": count * 250, # Space horizontally by 250px
-                    "y": get_layer_y(layer)
+                    "x": 150 + x_counter * 280,
+                    "y": layer_y.get(layer, 400)
                 }
             })
-            
-        # Build Edges
-        # We need to map file-to-file dependencies to cluster-to-cluster dependencies
-        # First, create a reverse mapping from file to its cluster
-        file_to_cluster = {}
+
+        # Build semantic edges at cluster level
+        seen_edges = set()
         for cluster_id, files in filtered.items():
-            for f in files:
-                file_to_cluster[f] = cluster_id
-                
-        cluster_edges = set()
-        for dep in self.dependencies:
-            source_file = dep['source']
-            target_file = dep['target']
-            
-            source_cluster = file_to_cluster.get(source_file)
-            target_cluster = file_to_cluster.get(target_file)
-            
-            # Add edge if both are in known clusters and it's not a self-loop
-            if source_cluster and target_cluster and source_cluster != target_cluster:
-                edge_tuple = (source_cluster, target_cluster)
-                if edge_tuple not in cluster_edges:
-                    cluster_edges.add(edge_tuple)
+            m = metrics.get(cluster_id, {})
+            for target_cluster in m.get("outgoing", []):
+                edge_key = (cluster_id, target_cluster)
+                if edge_key not in seen_edges:
+                    seen_edges.add(edge_key)
                     edges.append({
-                        "id": f"e-{source_cluster}-{target_cluster}",
-                        "source": source_cluster,
-                        "target": target_cluster
+                        "id": f"e-{cluster_id}-{target_cluster}",
+                        "source": cluster_id,
+                        "target": target_cluster,
+                        "label": "uses"
                     })
 
         return {"nodes": nodes, "edges": edges}
