@@ -23,10 +23,10 @@ export function ThemeToggle() {
 
   return (
     <Button
-      variant="ghost"
+      variant="default"
       size="icon"
       onClick={toggleTheme}
-      className="relative w-10 h-10 rounded-full bg-accent/10 hover:bg-accent/20 transition-colors duration-300"
+      className="relative w-12 h-12 bg-card text-foreground rough-border sketch-shadow hover:bg-muted active:translate-x-[6px] active:translate-y-[6px] active:shadow-none transition-all duration-200"
     >
       <motion.div
         initial={false}

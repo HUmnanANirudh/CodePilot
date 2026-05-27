@@ -52,9 +52,9 @@ cd backend
 Then, create a virtual environment and install the dependencies:
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+cd backend
+uv sync
+source .venv/bin/activate
 ```
 
 Finally, run the backend server:

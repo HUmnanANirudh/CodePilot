@@ -34,7 +34,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 
 const API_URL = "http://localhost:8000/api/v1";
 
-function App() {
+export default function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AnalysisResult | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -54,8 +54,8 @@ function App() {
           } else {
             toast.error("Failed to fetch analysis results.");
           }
-        } catch (error) {
-          toast.error("An unknown error occurred while fetching results.");
+        } catch (error:Error | unknown) {
+          toast.error("An unknown error occurred while fetching results.", error instanceof Error ? { description: error.message } : undefined);
         }
         setLoading(false);
       };
@@ -170,8 +170,8 @@ function App() {
       } else {
         toast.error("Failed to fetch analysis results.");
       }
-    } catch (error) {
-      toast.error("An unknown error occurred while fetching results.");
+    } catch (error:Error | unknown) {
+      toast.error("An unknown error occurred while fetching results.", error instanceof Error ? { description: error.message } : undefined);
     }
     setLoading(false);
   };
@@ -197,23 +197,23 @@ function App() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen bg-background w-full transition-colors duration-300">
+      <div className="flex h-screen bg-background w-full transition-colors duration-300 font-sans">
         <Toaster />
-        <Sidebar collapsible="icon" className="border-r border-border/20 bg-muted/10">
-          <SidebarHeader className="p-4 bg-transparent border-b border-border/10 flex flex-col gap-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2">
+        <Sidebar collapsible="icon" className="border-r-2 border-border bg-card/90 shadow-[4px_0_15px_rgba(0,0,0,0.1)] z-10 relative">
+          <SidebarHeader className="p-4 bg-transparent border-b-2 border-border border-dashed flex flex-col gap-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2 tape-top mt-4">
              <Button 
               onClick={handleNewChat} 
-              className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary shadow-sm border border-primary/20 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
-              variant="outline"
+              className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] -rotate-1 rough-border sketch-shadow font-marker text-lg transition-all group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
+              variant="default"
               size="default"
              >
                 <Plus className="w-5 h-5 shrink-0" />
-                <span className="font-medium group-data-[collapsible=icon]:hidden truncate">New Chat</span>
+                <span className="font-medium group-data-[collapsible=icon]:hidden truncate">New Note</span>
              </Button>
 
-            <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:hidden">
-               <h2 className="text-xs font-bold text-muted-foreground/50 uppercase tracking-wider">
-                 History
+            <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:hidden mt-2">
+               <h2 className="text-2xl font-bold font-hand text-foreground -rotate-2 tape-corner">
+                 History Log
                </h2>
             </div>
           </SidebarHeader>
@@ -223,7 +223,7 @@ function App() {
                 <SidebarMenuItem key={repo.id}>
                   <SidebarMenuButton 
                      onClick={() => handleSelectRepo(repo)}
-                     className="hover:bg-accent/10 hover:text-accent transition-colors data-[active=true]:bg-accent/20 data-[active=true]:text-accent text-muted-foreground font-medium group-data-[collapsible=icon]:justify-center"
+                     className="hover:bg-accent/10 hover:text-accent hover:rotate-1 hover:scale-[1.01] transition-all data-[active=true]:bg-secondary data-[active=true]:text-secondary-foreground data-[active=true]:rough-border data-[active=true]:sketch-shadow text-foreground font-hand text-xl group-data-[collapsible=icon]:justify-center mb-2"
                      tooltip={`${repo.owner}/${repo.name}`}
                   >
                     <span className="truncate">{repo.owner}/{repo.name}</span>
@@ -234,13 +234,13 @@ function App() {
           </SidebarContent>
           <SidebarRail />
         </Sidebar>
-        <SidebarInset className="bg-background transition-all duration-300">
+        <SidebarInset className="bg-transparent transition-all duration-300">
           <main className="flex flex-col h-full relative overflow-hidden">
-            <header className="absolute top-4 left-4 z-50 flex items-center gap-2">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
+            <header className="absolute top-4 left-4 z-50 flex items-center gap-2 bg-card rough-border p-1 sketch-shadow -rotate-1 tape">
+              <SidebarTrigger className="text-foreground hover:text-primary transition-colors" />
             </header>
             
-            <div className="absolute top-4 right-4 z-50">
+            <div className="absolute top-4 right-4 z-50 rotate-2">
                <ThemeToggle />
             </div>
 
@@ -260,14 +260,12 @@ function App() {
                     exit={{ opacity: 0 }}
                     className="flex flex-col items-center justify-center h-full space-y-6"
                   >
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-primary/30 blur-2xl rounded-full animate-pulse" />
-                      <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse delay-75" />
+                    <div className="relative p-8 bg-card rough-border sketch-shadow tape-top rotate-2">
                       <Spinner className="w-16 h-16 text-primary relative z-10" />
+                      <p className="text-2xl text-foreground font-hand mt-4 animate-pulse">
+                        Scribbling notes...
+                      </p>
                     </div>
-                    <p className="text-xl text-foreground/80 font-medium tracking-tight animate-pulse">
-                      Weaving your code's fable...
-                    </p>
                   </motion.div>
                 )}
 
@@ -276,22 +274,22 @@ function App() {
                     key="results"
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="container max-w-[1600px] mx-auto py-8 px-4 pb-12"
+                    className="container max-w-400 mx-auto py-8 px-4 pb-12"
                   >
-                    <div className="flex justify-between items-center mb-6 pl-10">
-                      <h2 className="text-2xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent hidden md:block">
+                    <div className="flex justify-between items-center mb-8 pl-10">
+                      <h2 className="text-4xl font-marker text-foreground hidden md:block -rotate-1 tape w-max bg-secondary px-4 py-1 sketch-shadow">
                         Analysis Results
                       </h2>
-                      <div className="space-x-2 px-8">
-                         <span className="text-sm text-muted-foreground mr-4 font-mono">{results.owner}/{results.name}</span>
+                      <div className="space-x-2 px-8 flex items-center bg-card rough-border p-2 sketch-shadow rotate-1">
+                         <span className="text-xl text-foreground mr-4 font-hand">{results.owner}/{results.name}</span>
                         <Button
                             onClick={handleShare}
-                            variant="outline"
+                            variant="default"
                             size="sm"
-                            className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors border-primary/20"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rough-border transition-colors"
                         >
                             <Share2 className="mr-2 h-4 w-4" />
-                            Share
+                            Share Note
                         </Button>
                       </div>
                     </div>
@@ -335,5 +333,3 @@ function App() {
     </SidebarProvider>
   );
 }
-
-export default App;

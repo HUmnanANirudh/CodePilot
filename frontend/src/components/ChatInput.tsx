@@ -48,19 +48,19 @@ const ChatInput: React.FC<ChatInputProps> = ({ onAnalysis, loading }) => {
              initial={{ opacity: 0, y: -20 }}
              animate={{ opacity: 1, y: 0 }}
              transition={{ duration: 0.8 }}
-             className="text-center space-y-4"
+             className="text-center space-y-6"
            >
-             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-foreground">
-                <span className="text-primary">
+             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-secondary-foreground font-marker -rotate-2 tape px-6 py-2 bg-secondary sketch-shadow inline-block">
+                <span>
                     {typedText}
                 </span>
                 <motion.span 
                     animate={{ opacity: [0, 1, 0] }}
                     transition={{ repeat: Infinity, duration: 0.8 }}
-                    className="inline-block w-1 h-12 align-middle bg-primary ml-1"
+                    className="inline-block w-2 h-12 align-middle bg-primary ml-1 rough-border"
                 />
              </h1>
-             <p className="text-muted-foreground text-xl md:text-2xl font-light">
+             <p className="text-foreground text-3xl font-hand font-bold rotate-1 mt-6">
                Paste the repo link below, and let the story unfold.
              </p>
            </motion.div>
@@ -73,8 +73,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onAnalysis, loading }) => {
           )}
         >
           
-          <div className="relative flex items-center bg-card rounded-full border border-primary/20 p-2 pl-6 shadow-md">
-            <Sparkles className={cn("w-5 h-5 text-primary mr-2 transition-opacity", isFocused ? "opacity-100" : "opacity-70")} />
+          <div className="relative flex items-center bg-card p-3 pl-6 rough-border sketch-shadow rotate-1 tape-top">
+            <Sparkles className={cn("w-6 h-6 text-primary mr-2 transition-opacity -rotate-12", isFocused ? "opacity-100" : "opacity-70")} />
             
             <Input
               id="repoUrl"
@@ -85,7 +85,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onAnalysis, loading }) => {
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               disabled={loading}
-              className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent shadow-none placeholder:text-muted-foreground/50 py-4 text-lg font-medium tracking-wide"
+              className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent shadow-none placeholder:text-muted-foreground py-4 text-xl font-mono font-bold tracking-wide text-foreground"
             />
             
             <div className="flex justify-end pr-1">
@@ -94,14 +94,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onAnalysis, loading }) => {
                 disabled={loading || !repoUrl.trim()}
                 size="icon"
                 className={cn(
-                  "h-10 w-10 rounded-full transition-all duration-300",
-                  repoUrl.trim() ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground"
+                  "h-12 w-12 transition-all duration-300 rough-border sketch-shadow -rotate-2",
+                  repoUrl.trim() ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-110" : "bg-muted text-muted-foreground"
                 )}
               >
                 {loading ? (
-                  <Spinner className="w-5 h-5" />
+                  <Spinner className="w-6 h-6" />
                 ) : (
-                  <ArrowUp className="w-5 h-5" />
+                  <ArrowUp className="w-6 h-6" strokeWidth={3} />
                 )}
               </Button>
             </div>

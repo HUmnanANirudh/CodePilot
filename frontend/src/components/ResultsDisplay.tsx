@@ -83,17 +83,17 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
     >
       {/* Narrative Section */}
       <motion.div variants={itemVariants}>
-        <div className="flex gap-6 p-6 bg-card/50 backdrop-blur-md rounded-2xl border border-primary/10 shadow-sm relative overflow-hidden group">
-             <Avatar className="w-12 h-12 border border-primary/20 mt-1 shrink-0 bg-background shadow-md">
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                <Bot className="w-6 h-6" />
+        <div className="flex gap-6 p-8 bg-card rough-border sketch-shadow tape-top rotate-1 relative group">
+             <Avatar className="w-14 h-14 mt-1 shrink-0 bg-transparent rough-border sketch-shadow -rotate-6">
+              <AvatarFallback className="bg-primary text-primary-foreground font-marker">
+                <Bot className="w-8 h-8" />
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-4">
-              <h3 className="text-xl font-bold text-foreground">
+              <h3 className="text-4xl font-marker text-foreground -rotate-2 mb-2 inline-block bg-secondary px-4 py-1 tape sketch-shadow">
                   The Tale
               </h3>
-              <div className="prose dark:prose-invert max-w-none text-foreground/90 leading-relaxed text-lg font-light">
+              <div className="prose dark:prose-invert max-w-none text-foreground/90 leading-relaxed text-2xl font-hand font-bold">
                  <ReactMarkdown>{data.narrative}</ReactMarkdown>
               </div>
             </div>
@@ -105,13 +105,13 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
           {/* LEFT COLUMN (2/3): Graph & Clusters */}
           <div className="lg:col-span-2 space-y-6">
               {/* Graph Container */}
-              <motion.div variants={itemVariants}>
-                 <div className="bg-card/50 backdrop-blur-xl rounded-2xl border border-primary/20 overflow-hidden shadow-sm relative group h-[450px]">
-                     <div className="absolute top-4 left-4 z-10 bg-background/80 backdrop-blur px-4 py-2 rounded-full border border-primary/20 text-sm font-medium text-foreground flex items-center gap-2 shadow-lg">
-                       <Activity className="w-4 h-4 text-primary animate-pulse" />
+              <motion.div variants={itemVariants} className="mt-4">
+                 <div className="bg-card p-2 rough-border sketch-shadow tape-corner -rotate-1 relative group h-[450px]">
+                     <div className="absolute top-4 left-4 z-10 bg-secondary px-4 py-2 rough-border sketch-shadow font-hand font-bold text-xl text-secondary-foreground flex items-center gap-2 -rotate-2">
+                       <Activity className="w-5 h-5 text-primary animate-pulse" />
                        {selectedCluster ? `Filtering: ${selectedCluster}` : "Full Architecture"}
                        {selectedCluster && (
-                          <button onClick={() => setSelectedCluster(null)} className="ml-2 text-xs text-muted-foreground hover:text-primary underline">
+                          <button onClick={() => setSelectedCluster(null)} className="ml-2 text-sm text-foreground hover:text-primary underline">
                               Clear
                           </button>
                        )}
@@ -122,25 +122,26 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
 
               {/* Clusters Card */}
               <motion.div variants={itemVariants}>
-                <Card className="border-primary/20 bg-card/50 backdrop-blur-md shadow-sm">
-                  <CardHeader className="pb-3 border-b border-border/10">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                      <GitGraph className="w-5 h-5 text-accent" />
+                <Card className="bg-card rough-border sketch-shadow rotate-1 mt-6">
+                  <CardHeader className="pb-3 border-b-2 border-border border-dashed">
+                    <CardTitle className="flex items-center gap-2 text-3xl font-marker text-foreground">
+                      <GitGraph className="w-6 h-6 text-primary" />
                       Architecture Clusters
                     </CardTitle>
-                    <CardDescription>Select a cluster to visualize specific modules.</CardDescription>
+                    <CardDescription className="font-hand text-xl">Select a cluster to visualize specific modules.</CardDescription>
                   </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="flex flex-wrap gap-2">
-                      {displayedClusters.map((cluster: string) => (
+                  <CardContent className="pt-6">
+                    <div className="flex flex-wrap gap-4">
+                      {displayedClusters.map((cluster: string, index: number) => (
                         <button 
                           key={cluster} 
                           onClick={() => setSelectedCluster(cluster === selectedCluster ? null : cluster)}
                           className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-300",
+                              "sticky-note px-4 py-3 font-hand text-xl font-bold transition-transform",
+                              index % 2 === 0 ? "rotate-2" : "-rotate-2",
                               cluster === selectedCluster 
-                                ? "bg-primary text-primary-foreground border-primary shadow-md scale-105"
-                                : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border-border hover:border-primary/30"
+                                ? "scale-110 z-10 outline outline-4 outline-primary"
+                                : "hover:scale-105 hover:z-10"
                           )}
                         >
                           {cluster}
@@ -169,38 +170,38 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
           </div>
 
           {/* RIGHT COLUMN (1/3): Hotspots */}
-          <motion.div variants={itemVariants} className="lg:h-full">
-            <Card className="h-full border-destructive/20 bg-card/50 backdrop-blur-md shadow-sm flex flex-col">
-              <CardHeader className="pb-3 border-b border-border/10">
+          <motion.div variants={itemVariants} className="lg:h-full mt-4 lg:mt-0">
+            <Card className="h-full bg-card rough-border sketch-shadow tape-top flex flex-col -rotate-1 lg:ml-2">
+              <CardHeader className="pb-3 border-b-2 border-border border-dashed">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                    <FileText className="w-5 h-5 text-destructive" />
+                    <CardTitle className="flex items-center gap-2 text-3xl font-marker text-foreground">
+                    <FileText className="w-6 h-6 text-destructive" />
                     Hotspots
                     </CardTitle>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                                <Info className="w-6 h-6 text-foreground cursor-help hover:text-primary transition-colors" />
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-popover text-popover-foreground border-border text-sm p-3">
-                                <p className="font-semibold mb-1">What is a Hotspot?</p>
+                            <TooltipContent className="max-w-xs bg-card rough-border sketch-shadow text-foreground text-lg font-hand p-4 rotate-1">
+                                <p className="font-bold font-marker text-xl mb-1">What is a Hotspot?</p>
                                 <p>Hotspots are files that are frequently changed and have high complexity. They are often sources of technical debt and potential bugs.</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                 </div>
-                <CardDescription>High complexity zones requiring attention.</CardDescription>
+                <CardDescription className="font-hand text-xl">High complexity zones requiring attention.</CardDescription>
               </CardHeader>
-              <CardContent className="pt-4 overflow-y-auto flex-1 max-h-[800px]">
-                <ul className="space-y-3">
+              <CardContent className="pt-6 overflow-y-auto flex-1 max-h-[800px]">
+                <ul className="space-y-4">
                   {data.metrics.hotspots.map((hotspot: string) => (
-                    <li key={hotspot} className="text-sm font-medium text-foreground/80 bg-destructive/5 px-3 py-3 rounded-lg border border-destructive/10 flex items-start gap-3 hover:bg-destructive/10 transition-colors">
-                      <span className="w-2 h-2 rounded-full bg-destructive mt-1.5 shrink-0 animate-pulse" />
+                    <li key={hotspot} className="text-xl font-hand font-bold text-foreground bg-transparent px-3 py-3 flex items-start gap-3 border-b-2 border-destructive/30 border-dashed hover:bg-destructive/10 transition-colors">
+                      <span className="w-4 h-4 rounded-full border-4 border-destructive mt-1 shrink-0 sketch-shadow" />
                       <span className="break-all">{hotspot}</span>
                     </li>
                   ))}
                   {data.metrics.hotspots.length === 0 && (
-                      <li className="text-sm text-muted-foreground italic text-center py-4">No significant hotspots detected. 🎉</li>
+                      <li className="text-2xl font-hand text-foreground italic text-center py-8 opacity-70">No significant hotspots detected. 🎉</li>
                   )}
                 </ul>
               </CardContent>

@@ -1,0 +1,19 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Backend for The Code Fable"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "requests",
+    "celery",
+    "redis",
+    "python-dotenv",
+    "psycopg2-binary",
+    "pydantic-settings",
+    "google-generativeai",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
