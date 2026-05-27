@@ -39,6 +39,10 @@ class DBClient:
             "metrics": None,
             "narrative": None,
             "clusters": None,
+            "intelligence": None,
+            "tree_viewer": None,
+            "architecture_summary": None,
+            "agent_prompt": None,
         }
         self.redis_client.set(f"repo:{owner}:{name}", repo_id)
         self.redis_client.set(f"repo_id:{repo_id}", json.dumps(new_repo))
@@ -93,6 +97,10 @@ class DBClient:
                 "metrics": analysis_data.get("metrics"),
                 "narrative": analysis_data.get("narrative"),
                 "clusters": analysis_data.get("clusters"),
+                "intelligence": analysis_data.get("intelligence"),
+                "tree_viewer": analysis_data.get("tree_viewer"),
+                "architecture_summary": analysis_data.get("architecture_summary"),
+                "agent_prompt": analysis_data.get("agent_prompt"),
             })
             self.redis_client.set(f"repo_id:{repo_id}", json.dumps(repo_data))
             job_id = analysis_data.get("job_id")
