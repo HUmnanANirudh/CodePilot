@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api import health, analyze, status, results, history
+from app.api import health, analyze, status, results
 
 app = FastAPI()
 
@@ -10,7 +10,7 @@ app.add_middleware(
     allow_origins=["http://localhost:5173","http://localhost:5174","http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],  
+    allow_headers=["*"],
 )
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -19,7 +19,6 @@ api_v1_router.include_router(health.router)
 api_v1_router.include_router(analyze.router)
 api_v1_router.include_router(status.router)
 api_v1_router.include_router(results.router)
-api_v1_router.include_router(history.router)
 
 app.include_router(api_v1_router)
 
