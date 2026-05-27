@@ -1,8 +1,0 @@
-fastapi
-requests
-celery
-redis
-python-dotenv
-psycopg2-binary
-pydantic-settings
-google-generativeai
