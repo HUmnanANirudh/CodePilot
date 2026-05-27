@@ -129,7 +129,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
           <div className="bg-primary text-primary-foreground font-mono font-bold text-lg px-6 py-3 sketch-shadow -rotate-1 rough-border flex items-center gap-2 max-w-lg truncate">
             <Code className="w-5 h-5" /> Stack: {(data.intelligence.tech_stack ?? []).slice(0, 3).join(", ")}
           </div>
-          {data.intelligence.total_prs != null && (
+          {data.intelligence.total_prs != null && data.intelligence.merged_prs != null && data.intelligence.open_prs != null && (
             <div className="bg-card text-foreground font-hand font-bold text-2xl px-6 py-2 sketch-shadow rotate-1 rough-border flex items-center gap-2">
               <GitPullRequest className="w-5 h-5 text-green-600" /> {data.intelligence.merged_prs} Merged / {data.intelligence.open_prs} Open PRs
             </div>
@@ -167,7 +167,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
 
       {/* Tree Viewer & AI Agent Prompt */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {data.tree_viewer && <TreeViewer data={data.tree_viewer} />}
+          {data.tree_viewer && Object.keys(data.tree_viewer).length > 0 && <TreeViewer data={data.tree_viewer} />}
           
           {data.agent_prompt && (
              <div className="bg-primary/5 p-6 rough-border sketch-shadow tape-top rotate-2 relative flex flex-col">
@@ -176,7 +176,7 @@ const ResultsDisplay: React.FC<ResultsProps> = ({ data }) => {
                 </h3>
                 <p className="font-hand text-xl mb-4 text-foreground/80">Use this prompt to inject the repository context into your favorite AI agent.</p>
                 <div className="flex-1 bg-card p-4 font-mono text-sm overflow-y-auto max-h-62.5 rough-border mb-4 text-foreground/80">
-                   {data.agent_prompt.structured}
+                   {data.agent_prompt?.structured || "*No structured prompt generated.*"}
                 </div>
                 <div className="flex gap-4 mt-auto">
                    <Button onClick={() => navigator.clipboard.writeText(data.agent_prompt!.markdown)} className="flex-1 bg-primary text-primary-foreground font-bold hover:scale-105 transition-transform sketch-shadow rough-border">

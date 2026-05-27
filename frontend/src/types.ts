@@ -7,7 +7,6 @@ export interface HistoryItem {
 export interface Node {
   id: string;
   group: string;
-  size: number;
 }
 
 export interface Link {

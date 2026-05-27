@@ -1,20 +1,6 @@
 version: '3.8'
 
 services:
-  # Redis (used for both Celery broker and as the primary data store)
-  redis:
-    image: redis:7-alpine
-    container_name: code-fable-redis
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Backend API
   backend:
     build:
@@ -25,36 +11,12 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/code_fable}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=${REDIS_URL:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
-    depends_on:
-      redis:
-        condition: service_healthy
     volumes:
       - ./backend:/app
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Celery Worker
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
-    container_name: code-fable-worker
-    environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/code_fable}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      - LLM_API_KEY=${LLM_API_KEY:-}
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app
 
   # Frontend
   frontend:
@@ -66,6 +28,3 @@ services:
       - "5173:80"
     depends_on:
       - backend
-
-volumes:
-  redis_data:

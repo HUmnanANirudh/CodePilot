@@ -57,8 +57,8 @@ class DBClient:
             "id": job_id,
             "repo_id": repo_id,
             "status": "pending",
-            "created_at": str(datetime.utcnow()),
-            "updated_at": str(datetime.utcnow()),
+            "created_at": str(datetime.now()),
+            "updated_at": str(datetime.now()),
         }
         self.redis_client.set(f"job:{job_id}", json.dumps(new_job))
         return new_job
@@ -98,7 +98,7 @@ class DBClient:
         if repo_data_str:
             repo_data = json.loads(repo_data_str)
             repo_data.update({
-                "last_analyzed": str(datetime.utcnow()),
+                "last_analyzed": str(datetime.now()),
                 "graph": analysis_data.get("graph"),
                 "metrics": analysis_data.get("metrics"),
                 "narrative": analysis_data.get("narrative"),
@@ -137,7 +137,7 @@ class DBClient:
                     return json.loads(repo_data)
         return None
 
-    async def get_analysis_history(self) -> List[Dict[str, Any]]:
+    def get_analysis_history(self) -> List[Dict[str, Any]]:
         """
         Retrieves a list of all analyzed repositories.
         """

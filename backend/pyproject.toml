@@ -6,7 +6,6 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "requests",
-    "celery",
     "redis",
     "python-dotenv",
     "psycopg2-binary",

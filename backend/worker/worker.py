@@ -1,8 +1,6 @@
 import os
 import sys
-from celery import Celery
 
-# Add the project root to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.config import settings
@@ -13,123 +11,78 @@ from app.core.narrative import Narrative
 from app.core.llm_client import LLMClient
 from app.core.db_client import db_client
 
-import ssl
-
-celery_app = Celery(
-    "worker",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
-)
-
-# Configure SSL for Render (or other providers using rediss://)
-if settings.CELERY_BROKER_URL.startswith("rediss://"):
-    ssl_conf = {
-        "ssl_cert_reqs": ssl.CERT_NONE,
-        "ssl_ca_certs": None,
-        "ssl_certfile": None,
-        "ssl_keyfile": None,
-    }
-    celery_app.conf.update(
-        broker_use_ssl=ssl_conf,
-        redis_backend_use_ssl=ssl_conf,
-    )
-
-from celery.exceptions import SoftTimeLimitExceeded
-
-@celery_app.task(bind=True, soft_time_limit=300, time_limit=310)
-def analyze_repository(self, owner: str, repo: str, repo_id: str):
+def run_analysis(owner: str, repo: str, repo_id: str):
     """
-    A Celery task to analyze a GitHub repository.
+    Synchronously analyzes a GitHub repository.
     """
     print(f"Analyzing {owner}/{repo}")
-    
-    # Update job status to 'running'
-    db_client.update_job_status(self.request.id, "running")
 
-    try:
-        # 1. Fetch data from GitHub
-        github_client = GitHubClient()
-        file_tree = github_client.get_file_tree(owner, repo)
+    github_client = GitHubClient()
+    file_tree = github_client.get_file_tree(owner, repo)
 
-        repo_info = github_client.get_repo(owner, repo)
-        stars = repo_info.get("stargazers_count", 0)
-        languages = github_client.get_languages(owner, repo)
-        contributors = github_client.get_contributors(owner, repo)
-        commits = github_client.get_commits(owner, repo, per_page=100, max_chunks=5)
-        pull_requests = github_client.get_pull_requests(owner, repo, per_page=100, max_chunks=3)
+    repo_info = github_client.get_repo(owner, repo)
+    stars = repo_info.get("stargazers_count", 0)
+    languages = github_client.get_languages(owner, repo)
+    contributors = github_client.get_contributors(owner, repo)
+    commits = github_client.get_commits(owner, repo, per_page=100, max_chunks=5)
+    pull_requests = github_client.get_pull_requests(owner, repo, per_page=100, max_chunks=3)
 
-        # Calculate PR merge frequency
-        merged_prs = [pr for pr in pull_requests if pr.get("merged_at")]
-        open_prs = [pr for pr in pull_requests if pr.get("state") == "open"]
+    merged_prs = [pr for pr in pull_requests if pr.get("merged_at")]
+    open_prs = [pr for pr in pull_requests if pr.get("state") == "open"]
 
-        intelligence = {
-            "repo_name": f"{owner}/{repo}",
-            "stars": stars,
-            "contributors": len(contributors),
-            "recent_commits": len(commits),
-            "tech_stack": list(languages.keys()),
-            "total_prs": len(pull_requests),
-            "merged_prs": len(merged_prs),
-            "open_prs": len(open_prs),
-        }
-        
-        # 2. Build directory tree viewer
-        def build_tree(paths):
-            tree = {}
-            for path in paths:
-                parts = path.split('/')
-                current = tree
-                for part in parts:
-                    current = current.setdefault(part, {})
-            return tree
-            
-        tree_paths = [item['path'] for item in file_tree if item['type'] == 'tree']
-        tree_viewer = build_tree(tree_paths)
+    intelligence = {
+        "repo_name": f"{owner}/{repo}",
+        "stars": stars,
+        "contributors": len(contributors),
+        "recent_commits": len(commits),
+        "tech_stack": list(languages.keys()),
+        "total_prs": len(pull_requests),
+        "merged_prs": len(merged_prs),
+        "open_prs": len(open_prs),
+    }
 
-        # 3. Parse imports to find dependencies
-        import_parser = ImportParser(github_client)
-        dependencies = import_parser.get_dependencies(owner, repo, file_tree)
+    # Build directory tree viewer
+    def build_tree(paths):
+        tree = {}
+        for path in paths:
+            parts = path.split('/')
+            current = tree
+            for part in parts:
+                current = current.setdefault(part, {})
+        return tree
 
-        # 4. Build graph (pass empty churn_data since we removed metrics)
-        graph_builder = GraphBuilder(file_tree, {}, dependencies)
-        graph = graph_builder.build_synapse_graph()
-        clusters = graph_builder.generate_clusters()
+    tree_paths = [item['path'] for item in file_tree if item['type'] == 'tree']
+    tree_viewer = build_tree(tree_paths)
 
-        # 5. Generate narrative, architecture summary, and agent prompt
-        llm_client = LLMClient(api_key=settings.LLM_API_KEY)
-        summary = {"hotspots": [], "clusters": clusters}
-        narrative_generator = Narrative(summary, llm_client)
-        story = narrative_generator.generate_story()
-        arch_summary = narrative_generator.generate_architecture_summary()
-        agent_prompt = narrative_generator.generate_agent_prompt(intelligence, tree_viewer)
+    # Parse imports to find dependencies
+    import_parser = ImportParser(github_client)
+    dependencies = import_parser.get_dependencies(owner, repo, file_tree)
 
-        # 6. Store results in DB
-        analysis_data = {
-            "job_id": self.request.id,
-            "graph": graph,
-            "metrics": {
-                "hotspots": [],
-            },
-            "clusters": clusters,
-            "narrative": story,
-            "architecture_summary": arch_summary,
-            "intelligence": intelligence,
-            "tree_viewer": tree_viewer,
-            "agent_prompt": agent_prompt,
-        }
-        db_client.store_analysis_result(repo_id, analysis_data)
+    # Build graph
+    graph_builder = GraphBuilder(file_tree, {}, dependencies)
+    graph = graph_builder.build_synapse_graph()
+    clusters = graph_builder.generate_clusters()
 
-        return {"status": "completed", "result": analysis_data}
+    # Generate narrative, architecture summary, and agent prompt
+    llm_client = LLMClient(api_key=settings.LLM_API_KEY)
+    summary = {"hotspots": [], "clusters": clusters}
+    narrative_generator = Narrative(summary, llm_client)
+    story = narrative_generator.generate_story()
+    arch_summary = narrative_generator.generate_architecture_summary()
+    agent_prompt = narrative_generator.generate_agent_prompt(intelligence, tree_viewer)
 
-    except SoftTimeLimitExceeded:
-        db_client.update_job_status(self.request.id, "TIMED_OUT")
-        print(f"Analysis timed out for {owner}/{repo}")
-        raise
-    except Exception as e:
-        db_client.update_job_status(self.request.id, "failed")
-        print(f"Analysis failed for {owner}/{repo}: {e}")
-        # Optionally re-raise the exception if you want Celery to record it as a failure
-        raise
-
-# To run the worker:
-# celery -A worker.worker.celery_app worker --loglevel=info
+    # Store results in DB
+    analysis_data = {
+        "graph": graph,
+        "metrics": {
+            "hotspots": [],
+        },
+        "clusters": clusters,
+        "narrative": story,
+        "architecture_summary": arch_summary,
+        "intelligence": intelligence,
+        "tree_viewer": tree_viewer,
+        "agent_prompt": agent_prompt,
+    }
+    db_client.store_analysis_result(repo_id, analysis_data)
+    return analysis_data
