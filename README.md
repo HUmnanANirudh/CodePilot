@@ -1,105 +1,64 @@
-# The Code Fable
+# CodePilot
 
-The Code Fable is a web application that analyzes public GitHub repositories and visualizes their structure as a "Code Fable" — a rich, interactive narrative dashboard.
+### AI-Powered GitHub Engineering Assistant + Repository Analytics
 
-## Architecture
+> Your internal engineering copilot — connect repositories, ask questions about your codebase, detect dead code, and get instant architecture insights. Powered by LangChain, vector embeddings, and LLMs.
+---
 
-- **Frontend:** React, Vite, TailwindCSS, and `react-force-graph-2d` (D3.js) for graph visualization.
-- **Backend:** Python, FastAPI, Celery, Redis.
-- **AI:** Google Gemini for narrative generation and architecture summaries.
+## What is CodePilot?
 
-## How to Run
+CodePilot is an **AI-powered engineering assistant** that connects to your GitHub repositories and transforms them into a searchable, queryable knowledge base. Think of it as **ChatGPT for your codebase** meets **SonarQube-lite analytics**.
 
-### Option 1: Docker (Recommended)
+### Core Capabilities
 
-The easiest way to run the entire project is using Docker Compose, which sets up all services (backend, frontend, worker, and Redis) automatically.
+| Feature | Description |
+|---------|-------------|
+| **Connect Repos** | Link any GitHub repository — CodePilot indexes the entire codebase |
+| **Semantic Search** | Search code by meaning, not just keywords. Find relevant functions, patterns, and implementations |
+| **AI Chat** | Ask natural language questions about your codebase and get grounded, cited answers |
+| **Architecture Diagrams** | Auto-generate dependency graphs and module relationship visualizations |
+| **Dead Code Detection** | Identify unused functions, orphaned modules, and unreferenced exports |
+| **Health Dashboard** | Repository health scoring — code quality, complexity, documentation coverage |
+| **Onboarding Docs** | Auto-generate onboarding documentation for new team members |
+---
 
-**Prerequisites:** Create a `.env` file in the project root with your API keys:
+## Tech Stack
 
-```bash
-GITHUB_TOKEN=your_github_personal_access_token
-LLM_API_KEY=your_google_gemini_api_key
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **API** | FastAPI | REST |
+| **LLM** | LangChain | RAG pipeline, chains, prompt orchestration |
+| **Vector Store** | ChromaDB | Code embeddings for semantic search |
+| **Database** | PostgreSQL | Structured data — repos, files, metrics |
+| **Cache & Queue** | Redis | Task queue for async indexing |
+| **Frontend** | React 19 + Vite + TailwindCSS | Dashboard & chat UI |
+| **Visualization** | Recharts + React Flow | Charts, graphs, architecture diagrams |
+| **Code Parsing** | Tree-sitter | AST-aware code chunking |
+
+---
+
+```
+POST   /api/repositories              # Connect a GitHub repo
+GET    /api/repositories              # List connected repos
+GET    /api/repositories/{id}         # Repo details + indexing status
+DELETE /api/repositories/{id}         # Remove repo + all data
+POST   /api/repositories/{id}/reindex # Re-index repository
 ```
 
-Then start the services:
+### Search & Chat
 
-```bash
-# Build and start all services
-docker-compose up --build
-
-# Or run in detached mode
-docker-compose up -d --build
+```
+POST   /api/search                   # Semantic code search
+WS     /api/chat/{repo_id}           # AI chat (WebSocket, streaming)
+GET    /api/chat/{repo_id}/sessions  # Chat session history
 ```
 
-**Access the application:**
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-
-**Useful Docker commands:**
-```bash
-# View logs
-docker-compose logs -f
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (clean slate)
-docker-compose down -v
-
-# Restart a specific service
-docker-compose restart backend
+### Analytics & Generation
 ```
-
-### Option 2: Manual Setup
-
-#### Prerequisites
-
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Node.js 20+
-- Redis running locally on port 6379
-
-#### 1. Backend
-
-```bash
-cd backend
-uv sync
-source .venv/bin/activate
-uvicorn app.main:app --reload
+GET    /api/analytics/{repo_id}/health        # Health score breakdown
+GET    /api/analytics/{repo_id}/dead-code     # Dead code report
+GET    /api/analytics/{repo_id}/architecture  # Architecture graph data
+POST   /api/generate/onboarding/{repo_id}     # Generate onboarding docs
+POST   /api/generate/architecture/{repo_id}   # Generate architecture diagram
 ```
-
-The API will be available at `http://localhost:8000`.
-
-#### 2. Frontend
-
-In a separate terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`.
-
-#### 3. Celery Worker
-
-In a third terminal (Redis must be running):
-
-```bash
-cd backend
-source .venv/bin/activate
-celery -A worker.worker.celery_app worker --loglevel=info
-```
-
-#### Environment Variables
-
-Create a `backend/.env` file with the following:
-
-```bash
-GITHUB_TOKEN=your_github_personal_access_token
-LLM_API_KEY=your_google_gemini_api_key
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-REDIS_URL=redis://localhost:6379/0
-```
+---
