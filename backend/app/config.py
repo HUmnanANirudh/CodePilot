@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = "your_github_token"
     LLM_API_KEY: str = "your_llm_api_key"
     REDIS_URL: str = ""
+    OPENAI_API_KEY: str = ""
+    CHROMA_PERSIST_DIR: str = "./chroma_data"
+    LLM_MODEL: str = "gpt-4o-mini"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8')
 

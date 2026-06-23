@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api import health, analyze, status, results
+from app.api import repositories, search, analytics, generate, health
 
 app = FastAPI()
 
@@ -13,14 +13,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_v1_router = APIRouter(prefix="/api/v1")
+api_router = APIRouter(prefix="/api")
 
-api_v1_router.include_router(health.router)
-api_v1_router.include_router(analyze.router)
-api_v1_router.include_router(status.router)
-api_v1_router.include_router(results.router)
+api_router.include_router(repositories.router)
+api_router.include_router(search.router)
+api_router.include_router(analytics.router)
+api_router.include_router(generate.router)
 
-app.include_router(api_v1_router)
+app.include_router(api_router)
+app.include_router(health.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
