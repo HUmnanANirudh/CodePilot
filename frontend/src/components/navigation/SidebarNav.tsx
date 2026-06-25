@@ -3,12 +3,9 @@ import {
   LayoutDashboard, 
   Search, 
   Network, 
-  Share2, 
   Skull, 
-  HeartPulse, 
   Map, 
   BookOpen, 
-  Settings,
   Plus
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -26,12 +23,9 @@ export function SidebarNav() {
     { label: "Overview", icon: LayoutDashboard, path: `/repositories/${repoId}` },
     { label: "Search", icon: Search, path: `/repositories/${repoId}/search` },
     { label: "Architecture", icon: Network, path: `/repositories/${repoId}/architecture` },
-    { label: "Dependencies", icon: Share2, path: `/repositories/${repoId}/dependencies` },
     { label: "Dead Code", icon: Skull, path: `/repositories/${repoId}/dead-code` },
-    { label: "Health", icon: HeartPulse, path: `/repositories/${repoId}/health` },
     { label: "Guided Tour", icon: Map, path: `/repositories/${repoId}/guided-tour` },
     { label: "Onboarding Docs", icon: BookOpen, path: `/repositories/${repoId}/onboarding` },
-    { label: "Settings", icon: Settings, path: `/repositories/${repoId}/settings` },
   ];
 
   return (

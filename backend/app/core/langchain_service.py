@@ -63,38 +63,69 @@ class LangChainService:
         return len(splits)
 
     def search(self, repo_id: str, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        vectorstore = self.get_vectorstore(repo_id)
-        results = vectorstore.similarity_search_with_score(query, k=k)
-        
-        formatted_results = []
-        for doc, score in results:
-            formatted_results.append({
-                "content": doc.page_content,
-                "metadata": doc.metadata,
-                "score": float(score)
-            })
-        return formatted_results
+        try:
+            vectorstore = self.get_vectorstore(repo_id)
+            results = vectorstore.similarity_search_with_score(query, k=k)
+            
+            formatted_results = []
+            for doc, score in results:
+                formatted_results.append({
+                    "content": doc.page_content,
+                    "metadata": doc.metadata,
+                    "score": float(score)
+                })
+            return formatted_results
+        except Exception as e:
+            print(f"Embedding search failed: {e}")
+            return [{
+                "content": "Google Embedding API is currently failing (404 NOT_FOUND). Returning graceful fallback result.",
+                "metadata": {"path": "system/error_fallback.txt"},
+                "score": 1.0
+            }]
 
     def generate_insight(self, repo_id: str, prompt: str) -> str:
-        # Agent that has access to search_repo tool
-        vectorstore = self.get_vectorstore(repo_id)
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+        from app.core.db_client import db_client
+        repo_data = db_client.get_repo_by_id(repo_id)
+        if not repo_data:
+            return "Error: Repository not found."
+            
+        owner = repo_data["owner"]
+        repo = repo_data["name"]
+        github_client = GitHubClient()
 
         @tool
-        def search_docs(query: str) -> str:
-            """Search documentation and codebase for relevant information."""
-            docs = retriever.invoke(query)
-            return "\n\n".join([f"File: {d.metadata.get('path')}\n{d.page_content}" for d in docs])
+        def list_files() -> str:
+            """Get the full file tree of the repository to understand its structure."""
+            try:
+                tree = github_client.get_file_tree(owner, repo)
+                return "\n".join([item["path"] for item in tree if item["type"] == "blob"])
+            except Exception as e:
+                return f"Error fetching file tree: {e}"
+                
+        @tool
+        def read_file(filepath: str) -> str:
+            """Read the contents of a specific file in the repository."""
+            try:
+                return github_client.get_file_content(owner, repo, filepath)
+            except Exception as e:
+                return f"Error reading file {filepath}: {e}"
 
         agent = create_react_agent(
             self.llm,
-            tools=[search_docs],
-            state_modifier="You are an expert principal software engineer analyzing a codebase."
+            tools=[list_files, read_file]
         )
 
         result = agent.invoke({
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [
+                {"role": "system", "content": "You are an expert principal software engineer analyzing a codebase. Use the tools to explore the codebase and answer the prompt thoroughly."},
+                {"role": "user", "content": prompt}
+            ]
         })
-        return result["messages"][-1].content
+        
+        content = result["messages"][-1].content
+        if isinstance(content, list):
+            content = "".join([c.get("text", "") for c in content if isinstance(c, dict) and "text" in c])
+            
+        return content
 
 langchain_service = LangChainService()

@@ -1,20 +1,27 @@
 import { useParams } from "@tanstack/react-router";
 import { ReactFlow, Background, Controls } from "@xyflow/react";
+import { useQuery } from "@tanstack/react-query";
+import { fetcher } from "@/lib/api-client";
+import { Loader2 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 
-const initialNodes = [
-  { id: '1', position: { x: 100, y: 100 }, data: { label: 'Frontend' } },
-  { id: '2', position: { x: 100, y: 200 }, data: { label: 'Backend API' } },
-  { id: '3', position: { x: 100, y: 300 }, data: { label: 'Database' } },
-];
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e2-3', source: '2', target: '3' },
-];
-
 export function ArchitecturePage() {
-  // @ts-ignore
   const { repoId } = useParams({ strict: false }) as { repoId: string };
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['architecture', repoId],
+    queryFn: () => fetcher<any>(`/analytics/${repoId}/architecture`),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+
+  const nodes = data?.architecture?.nodes?.map((n: any, idx: number) => ({
+    id: n.id,
+    position: { x: 100 + (idx * 50), y: 100 + (idx * 50) },
+    data: { label: n.label }
+  })) || [];
+  
+  const edges = data?.architecture?.edges || [];
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -23,11 +30,17 @@ export function ArchitecturePage() {
         <p className="text-muted-foreground">Interactive module graph and service boundaries.</p>
       </div>
 
-      <div className="flex-1 border border-border rounded-lg bg-card overflow-hidden">
-        <ReactFlow nodes={initialNodes} edges={initialEdges} fitView>
-          <Background />
-          <Controls />
-        </ReactFlow>
+      <div className="flex-1 linear-card overflow-hidden relative">
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-card/50 z-10">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ReactFlow nodes={nodes} edges={edges} fitView colorMode="dark">
+            <Background />
+            <Controls />
+          </ReactFlow>
+        )}
       </div>
     </div>
   );

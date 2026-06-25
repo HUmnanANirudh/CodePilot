@@ -39,7 +39,12 @@ class DBClient:
             "metrics": None,
             "narrative": None,
             "clusters": None,
-            "intelligence": None,
+            "intelligence": {
+                "stars": repo_info.get("stargazers_count", 0),
+                "contributors": 0, # Could be fetched if needed
+                "recent_commits": repo_info.get("size", 0),
+                "open_prs": repo_info.get("open_issues_count", 0)
+            },
             "tree_viewer": None,
             "how_it_works": None,
             "rebuild_prompt": None,

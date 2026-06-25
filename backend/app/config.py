@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = ""
     OPENAI_API_KEY: str = ""
     CHROMA_PERSIST_DIR: str = "./chroma_data"
-    LLM_MODEL: str = "gemini-2.5-flash"
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    LLM_MODEL: str = "gemini-1.5-flash"
+    EMBEDDING_MODEL: str = "text-embedding-004"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8')
 
