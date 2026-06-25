@@ -2,10 +2,10 @@ import os
 import json
 from typing import List, Dict, Any
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
 from app.config import settings
@@ -14,13 +14,13 @@ from app.core.github_client import GitHubClient
 class LangChainService:
     def __init__(self):
         self.persist_dir = settings.CHROMA_PERSIST_DIR
-        self.embeddings = OpenAIEmbeddings(
+        self.embeddings = GoogleGenerativeAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
-            api_key=settings.OPENAI_API_KEY
+            google_api_key=settings.LLM_API_KEY
         )
-        self.llm = ChatOpenAI(
+        self.llm = ChatGoogleGenerativeAI(
             model=settings.LLM_MODEL,
-            api_key=settings.OPENAI_API_KEY
+            google_api_key=settings.LLM_API_KEY
         )
 
     def get_vectorstore(self, repo_id: str) -> Chroma:
@@ -86,10 +86,10 @@ class LangChainService:
             docs = retriever.invoke(query)
             return "\n\n".join([f"File: {d.metadata.get('path')}\n{d.page_content}" for d in docs])
 
-        agent = create_agent(
-            model=self.llm,
+        agent = create_react_agent(
+            self.llm,
             tools=[search_docs],
-            system_prompt="You are an expert principal software engineer analyzing a codebase."
+            state_modifier="You are an expert principal software engineer analyzing a codebase."
         )
 
         result = agent.invoke({
