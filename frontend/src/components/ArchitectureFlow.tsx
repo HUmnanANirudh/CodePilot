@@ -31,9 +31,9 @@ function FlowGraph({ data, onNodeSelect }: { data: ModuleDiagram; onNodeSelect?:
   const initialNodes = useMemo(() => {
     if (!data.nodes || data.nodes.length === 0) return [];
     return data.nodes.map((node: ModuleNode) => ({
+      ...node,
       id: node.id,
       position: node.position ?? { x: 0, y: 0 },
-      ...node,
       style: {
         background: layerColors[node.data?.layer as string] || '#8b5cf6',
         color: '#ffffff',
